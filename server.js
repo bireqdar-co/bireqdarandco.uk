@@ -12,7 +12,8 @@ const DATA_DIR = path.resolve(process.env.DATA_DIR || path.join(ROOT, 'data'));
 const UPLOAD_DIR = path.resolve(process.env.UPLOAD_DIR || path.join(ROOT, 'uploads'));
 const DB_FILE = path.join(DATA_DIR, 'store.json');
 const PORT = Number(process.env.PORT || 3000);
-const HOST = process.env.HOST || '127.0.0.1';
+// Render routes public traffic to 0.0.0.0; keep this as the default if HOST isn't configured.
+const HOST = process.env.HOST || '0.0.0.0';
 const APP_URL = process.env.APP_URL || process.env.RENDER_EXTERNAL_URL || '';
 const MAX_BODY = 7 * 1024 * 1024;
 const allowedCurrencies = new Set(['GBP', 'EUR', 'USD']);
@@ -95,7 +96,8 @@ async function loadDb() {
   if (!db.admin && !setupKeyLogged) { console.log(`Owner setup key: ${db.setupKey || 'set ADMIN_SETUP_KEY in the environment'}`); setupKeyLogged = true; }
 }
 function saveDb() {
-  writeQueue = writeQueue.then(async () => {
+  // Recover the queue after an individual disk failure so later writes can retry.
+  writeQueue = writeQueue.catch(() => {}).then(async () => {
     const tmp = `${DB_FILE}.${process.pid}.tmp`;
     await fs.writeFile(tmp, JSON.stringify(db, null, 2), { mode: 0o600 });
     await fs.rename(tmp, DB_FILE);
@@ -139,6 +141,7 @@ function customerSession(req) {
 }
 function publicCustomer(customer) { return {id:customer.id,name:customer.name,email:customer.email}; }
 function customerCookie(token,maxAge=2592000) { const secure=APP_URL.startsWith('https://')?' Secure;':'';return `bireqdar_customer_session=${encodeURIComponent(token)}; HttpOnly; SameSite=Lax; Path=/; Max-Age=${maxAge};${secure}`; }
+function adminCookie(token,maxAge=43200) { const secure=APP_URL.startsWith('https://')?' Secure;':'';return `bireqdar_session=${encodeURIComponent(token)}; HttpOnly; SameSite=Strict; Path=/; Max-Age=${maxAge};${secure}`; }
 function issueCustomerSession(customer) { const token=crypto.randomBytes(32).toString('hex');db.customerSessions[token]={customerId:customer.id,expiresAt:Date.now()+30*24*60*60*1000};return token; }
 function requireAdmin(req,res) {
   const token=sessionFrom(req); const expires=db.sessions[token];
@@ -206,13 +209,17 @@ async function stripeCheckout(order, req) {
 }
 function computeOrder(lines, country='') {
   if (!Array.isArray(lines)||lines.length<1||lines.length>30) throw Object.assign(new Error('Your bag is empty or contains too many items.'),{status:400});
-  const items=[]; let total=0; let tax=0; let currency=null; const requestedByProduct=new Map(); const countryText=String(country||'').trim(); const ukCountry=/(^|[^a-z])(uk|gb)(?=$|[^a-z])|united kingdom|great britain|britain|england|scotland|wales|northern ireland/i.test(countryText); const uk=db.settings.vatRegistered&&ukCountry;
+  const items=[]; let total=0; let tax=0; let currency=null; const requestedByProduct=new Map(); const now=Date.now(); const reservedByProduct=new Map();
+  // Stripe Checkout sessions expire after 24 hours. Treat still-pending paid-flow orders as
+  // temporary stock holds, so parallel checkouts cannot sell the same last item twice.
+  for(const order of db.orders){if(order.status!=='payment_pending'||order.paymentMode!=='stripe'||now-Date.parse(order.createdAt)>=24*60*60*1000)continue;for(const item of order.items||[])reservedByProduct.set(item.id,(reservedByProduct.get(item.id)||0)+Number(item.quantity||0));}
+  const countryText=String(country||'').trim(); const ukCountry=/(^|[^a-z])(uk|gb)(?=$|[^a-z])|united kingdom|great britain|britain|england|scotland|wales|northern ireland/i.test(countryText); const uk=db.settings.vatRegistered&&ukCountry;
   for (const line of lines) {
     const p=db.products.find(x=>x.id===line.id && x.published);
     const qty=Math.floor(Number(line.quantity));
     if (!p || p.type==='watch' || p.inquiryOnly || p.priceCents===null) throw Object.assign(new Error('One item in your bag can no longer be purchased. Please refresh your bag.'),{status:409});
     if (!Number.isInteger(qty)||qty<1||qty>10) throw Object.assign(new Error('Choose a quantity between 1 and 10.'),{status:400});
-    const requested=(requestedByProduct.get(p.id)||0)+qty;if(p.stock<requested)throw Object.assign(new Error(`${p.name} does not have enough stock available for all selected finishes.`),{status:409});requestedByProduct.set(p.id,requested);
+    const requested=(requestedByProduct.get(p.id)||0)+qty;const available=p.stock-(reservedByProduct.get(p.id)||0);if(available<requested)throw Object.assign(new Error(`${p.name} does not have enough stock available for all selected finishes.`),{status:409});requestedByProduct.set(p.id,requested);
     if (currency && currency!==p.currency) throw Object.assign(new Error('Your bag must use one currency. Remove items using another currency.'),{status:400});
     currency=p.currency; const finish=clean(line.finish,40); if(finish&&!['Silver','Yellow Gold Plated','Rose Gold Plated'].includes(finish))throw Object.assign(new Error('Choose a valid finish for this piece.'),{status:400}); if(finish&&p.collectionId!=='col-silver')throw Object.assign(new Error('This finish is not available for the selected piece.'),{status:400}); const vatRate=Number.isFinite(Number(p.vatRate))?Number(p.vatRate):20; const item={id:p.id,slug:p.slug,name:p.name+(finish?` — ${finish}`:''),priceCents:p.priceCents,currency:p.currency,quantity:qty,isDemo:!!p.isDemo,vatRate,finish}; items.push(item); const lineTotal=p.priceCents*qty; total+=lineTotal; if(uk&&vatRate>0)tax+=Math.round(lineTotal*vatRate/(100+vatRate));
   }
@@ -262,7 +269,7 @@ async function handleApi(req,res,url) {
     if (b.acceptTerms!==true) return send(res,400,{error:'Please confirm your delivery details and privacy notice.'});
     const account=customerSession(req)?.customer||null;if(account){customer.name=account.name;customer.email=account.email;} const totals=computeOrder(b.items,customer.country); const shippingCents=Number.isInteger(db.settings.shippingCents)?db.settings.shippingCents:0;
     if (process.env.STRIPE_SECRET_KEY?.startsWith('sk_live_') && (db.settings.shippingCents===null || (db.settings.vatRegistered&&!db.settings.automaticTaxEnabled))) return send(res,503,{error:'Live checkout is not ready. Configure delivery pricing and Stripe automatic tax in Owner Studio first.'});
-    const order={id:id(),reference:`BC-${shortRef()}`,createdAt:new Date().toISOString(),status:'payment_pending',paymentMode:'preview',customer,customerId:account?.id||null,items:totals.items,subtotalCents:totals.total,taxCents:totals.tax,shippingCents,totalCents:totals.total+shippingCents,currency:totals.currency};
+    const order={id:id(),reference:`BC-${shortRef()}`,createdAt:new Date().toISOString(),status:'payment_pending',paymentMode:process.env.STRIPE_SECRET_KEY&&!totals.items.some(item=>item.isDemo)?'stripe':'preview',customer,customerId:account?.id||null,items:totals.items,subtotalCents:totals.total,taxCents:totals.tax,shippingCents,totalCents:totals.total+shippingCents,currency:totals.currency};
     db.orders.unshift(order); await saveDb();
     try {
       const session=await stripeCheckout(order,req);
@@ -277,9 +284,12 @@ async function handleApi(req,res,url) {
   if (req.method==='POST' && route==='/api/stripe-webhook') {
     const raw=await readRaw(req); const secret=process.env.STRIPE_WEBHOOK_SECRET;
     if (!secret) return text(res,503,'Webhook is not configured.');
-    const sig=String(req.headers['stripe-signature']||''); const parts=Object.fromEntries(sig.split(',').map(p=>p.split('=')));
-    const timestamp=parts.t; const expected=crypto.createHmac('sha256',secret).update(`${timestamp}.${raw.toString('utf8')}`).digest('hex');
-    if (!timestamp||!parts.v1||!safeEqual(expected,parts.v1)) return text(res,400,'Invalid signature.');
+    const sig=String(req.headers['stripe-signature']||''); const parts=sig.split(',').map(p=>p.trim().split('='));
+    const timestampText=parts.find(([key])=>key==='t')?.[1]||''; const timestamp=Number(timestampText); const signatures=parts.filter(([key])=>key==='v1').map(([,value])=>value);
+    const age=Math.abs(Date.now()/1000-timestamp);
+    if (!timestampText||!Number.isFinite(timestamp)||age>300) return text(res,400,'Invalid or expired signature.');
+    const expected=crypto.createHmac('sha256',secret).update(`${timestampText}.${raw.toString('utf8')}`).digest('hex');
+    if (!signatures.some(signature=>safeEqual(expected,signature))) return text(res,400,'Invalid signature.');
     let event; try { event=JSON.parse(raw.toString('utf8')); } catch { return text(res,400,'Invalid event.'); }
     if (event.type==='checkout.session.completed') {
       const session=event.data?.object; const order=db.orders.find(o=>o.stripeSessionId===session?.id);
@@ -300,16 +310,16 @@ async function handleApi(req,res,url) {
       if (!/^[a-zA-Z0-9._-]{3,50}$/.test(username)||password.length<12||password.length>200) return send(res,400,{error:'Use a 3–50 character username and a password of at least 12 characters.'});
       const salt=crypto.randomBytes(16).toString('hex'); const hash=crypto.scryptSync(password,salt,64).toString('hex'); db.admin={username,salt,hash,createdAt:new Date().toISOString()}; db.setupKey=null;
       const token=crypto.randomBytes(32).toString('hex'); db.sessions[token]=Date.now()+1000*60*60*12; await saveDb();
-      return send(res,201,{ok:true,username},{'Set-Cookie':`bireqdar_session=${encodeURIComponent(token)}; HttpOnly; SameSite=Strict; Path=/; Max-Age=43200`});
+      return send(res,201,{ok:true,username},{'Set-Cookie':adminCookie(token)});
     }
     if (req.method==='POST'&&route==='/api/admin/login') {
       const b=await readJson(req); const username=clean(b.username,50),password=String(b.password||''); const now=Date.now();
       const recent=(loginAttempts.get(req.socket.remoteAddress)||[]).filter(t=>now-t<15*60*1000); if (recent.length>=8) return send(res,429,{error:'Too many attempts. Wait 15 minutes and try again.'});
       if (!db.admin || username!==db.admin.username || !safeEqual(crypto.scryptSync(password,db.admin.salt,64).toString('hex'),db.admin.hash)) { recent.push(now);loginAttempts.set(req.socket.remoteAddress,recent);return send(res,401,{error:'The username or password is incorrect.'}); }
       loginAttempts.delete(req.socket.remoteAddress); const token=crypto.randomBytes(32).toString('hex');db.sessions[token]=Date.now()+1000*60*60*12;await saveDb();
-      return send(res,200,{ok:true,username},{'Set-Cookie':`bireqdar_session=${encodeURIComponent(token)}; HttpOnly; SameSite=Strict; Path=/; Max-Age=43200`});
+      return send(res,200,{ok:true,username},{'Set-Cookie':adminCookie(token)});
     }
-    if (req.method==='POST'&&route==='/api/admin/logout') { const token=sessionFrom(req);delete db.sessions[token];await saveDb();return send(res,200,{ok:true},{'Set-Cookie':'bireqdar_session=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0'}); }
+    if (req.method==='POST'&&route==='/api/admin/logout') { const token=sessionFrom(req);delete db.sessions[token];await saveDb();return send(res,200,{ok:true},{'Set-Cookie':adminCookie('',0)}); }
     if (req.method==='GET'&&route==='/api/admin/me') { if(!requireAdmin(req,res))return;return send(res,200,{username:db.admin.username}); }
     if (!requireAdmin(req,res)) return;
     if (req.method==='GET'&&route==='/api/admin/data') return send(res,200,{products:db.products,collections:db.collections,orders:db.orders,reservations:db.reservations,settings:db.settings,username:db.admin.username});
@@ -372,5 +382,5 @@ async function main(req,res) {
 }
 loadDb().then(()=>{
   const server=http.createServer(main);
-  server.listen(PORT,HOST,()=>console.log(`BIREQDAR&CO. V1 running at http://localhost:${PORT}`));
+  server.listen(PORT,HOST,()=>console.log(`BIREQDAR&CO. V1 listening on ${HOST}:${PORT}`));
 }).catch(err=>{console.error('Could not start store:',err);process.exit(1)});
