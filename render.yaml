@@ -1,0 +1,22 @@
+services:
+  - type: web
+    name: bireqdar-storefront
+    runtime: node
+    plan: 0.5c-512mb
+    region: frankfurt
+    buildCommand: npm install --omit=dev
+    startCommand: npm start
+    healthCheckPath: /api/store
+    disk:
+      name: bireqdar-store-data
+      mountPath: /var/data
+      sizeGB: 1
+    envVars:
+      - key: HOST
+        value: 0.0.0.0
+      - key: DATA_DIR
+        value: /var/data
+      - key: UPLOAD_DIR
+        value: /var/data/uploads
+      - key: ADMIN_SETUP_KEY
+        generateValue: true
