@@ -3,7 +3,7 @@
 .category-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;padding-top:100px;padding-bottom:100px}.category-intro{grid-column:1/-1;display:flex;align-items:end;justify-content:space-between;margin-bottom:22px;gap:28px}.category-intro h2{font-size:52px;line-height:.98;font-weight:400;margin:15px 0 0}.category-intro>p:last-child{max-width:340px;color:#78877a;font-size:16px;line-height:1.55}.category-card{min-height:295px;padding:25px;background:#e7e2d6;display:flex;flex-direction:column;align-items:flex-start;transition:transform .2s,background .2s}.category-card:hover{transform:translateY(-3px);background:#e1e5d8}.category-card:nth-of-type(3){background:#dfe5d8}.category-card:nth-of-type(4){background:#e9dfd5}.category-art{height:110px;width:100%;display:grid;place-items:center;margin-bottom:16px;color:#1b6547;font-size:78px;background:radial-gradient(circle at 50% 45%,#d0dcc6,#b5c5ae 72%,#9eae9b)}.watch-art{font-size:95px;color:#b9c5b7;background:radial-gradient(circle at 50% 45%,#718e77,#42634d 75%)}.bespoke-art{color:#e99b98;background:radial-gradient(circle at 50% 45%,#e9d4ca,#d8bcb3 75%)}.category-kicker{font:9px var(--sans);letter-spacing:.17em;color:#718174}.category-card strong{font-size:24px;line-height:1.13;font-weight:400;margin-top:10px}.category-link{font-size:13px;color:#4d7258;margin-top:auto;padding-top:20px;border-bottom:1px solid #a7b5a6;padding-bottom:5px}@media(max-width:700px){.category-grid{grid-template-columns:1fr;padding-top:75px;padding-bottom:75px}.category-intro{display:block}.category-intro h2{font-size:45px}.category-intro>p:last-child{margin-top:16px}.category-card{min-height:255px}.category-art{height:95px}}
 .jewel-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-top:56px}.jewel-card{padding:17px;background:#e8e3d7;display:flex;flex-direction:column;min-height:465px;transition:transform .2s}.jewel-card:hover{transform:translateY(-3px)}.jewel-card h2{font-weight:400;font-size:28px;margin:12px 0 4px;color:#42634d}.jewel-card>p:not(.eyebrow){font-size:15px;line-height:1.55;color:#78877a}.jewel-card .category-link{margin-top:auto}.jewel-visual{height:220px;display:grid;place-items:center;position:relative;overflow:hidden;background:radial-gradient(circle at 50% 42%,#d3ded0,#a7bba8 70%,#77957e);color:#f9f5e9}.jewel-visual span{font-size:115px;text-shadow:0 10px 18px #29493355}.jewel-visual small{position:absolute;bottom:12px;left:12px;font:8px var(--sans);letter-spacing:.15em;color:#ffffffd0}.jewel-visual.lab{background:radial-gradient(circle at 50% 42%,#e9ded5,#ceb9b5 70%,#af9792)}.jewel-visual.lab span{color:#fff8ec}.jewel-visual.bespoke-visual{background:radial-gradient(circle at 50% 42%,#c7d2bb,#89a189 70%,#4f7158)}.bespoke-scene{background:radial-gradient(circle at 50% 45%,#efd0cb,#d8aaa4 46%,#846d63 100%)}@media(max-width:750px){.jewel-grid{grid-template-columns:1fr}.jewel-card{min-height:420px}.jewel-visual{height:230px}}
 /* Site-wide emerald texture supplied by BIREQDAR&CO. */
-body{background:#062318 url('emerald-background.png') center center / cover fixed no-repeat;color:#efeada}
+body{background:#062318;color:#efeada}
 .site-header,footer{background:rgba(2,20,13,.62);border-color:rgba(224,231,210,.22);color:#e9e5d8}
 .site-header .wordmark,footer .wordmark{color:#f0ead7}.site-header .wordmark span,footer .wordmark span,nav{color:#d7dfd0}
 nav a:hover,footer a:hover{color:#f1a1a0}.nav-cta{border-color:rgba(219,227,209,.5)}
@@ -458,6 +458,32 @@ button,a,input,select,textarea{-webkit-tap-highlight-color:transparent;touch-act
   .section,.story,.contact{padding-left:18px;padding-right:18px}
   .category-grid{grid-template-columns:1fr;padding-inline:18px}
   .category-card{min-height:170px}
+}
+
+/* Keep the concept art flush with its card edges on mobile. */
+.collection .product-card{overflow:hidden;gap:0;border-radius:16px}
+.collection .product-visual.concept-render{border-radius:0}
+.collection .concept-render-image{display:block;width:100%;height:100%;object-fit:contain;object-position:center}
+
+/* Replace platform-dependent glyph rendering with the actual brand mark. */
+.contact-seal{display:block;width:62px;height:62px;object-fit:contain;margin:0 0 20px}
+
+/* A quiet, structured brand footer with consistent spacing and contrast. */
+footer.site-footer{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:16px 32px;padding:28px max(22px,6vw) 22px;background:rgba(1,18,12,.94);border-top:1px solid rgba(198,164,119,.26);color:#e9e1d1}
+.footer-brand{grid-column:1;grid-row:1;display:flex;align-items:center;gap:12px;width:max-content;max-width:100%}
+.footer-monogram{display:block;width:44px;height:44px;object-fit:contain}
+.footer-wordmark{display:block;width:190px;height:auto;max-height:34px;object-fit:contain;object-position:left center}
+.site-footer .category-line{grid-column:1;grid-row:2;margin:0;color:#c9c8b8;font:11px/1.5 "Times New Roman",Times,serif;letter-spacing:.04em}
+.site-footer .footer-links{grid-column:2;grid-row:1 / span 2;display:flex;align-items:center;gap:clamp(18px,3vw,38px);padding:0;background:none;color:#e5dcc8;font:13px "Times New Roman",Times,serif}
+.site-footer .footer-links a{white-space:nowrap;text-underline-offset:4px}
+.site-footer .footer-links a:hover{color:#d4af78}
+.site-footer .footer-copyright{grid-column:1 / -1;margin:0;padding-top:14px;border-top:1px solid rgba(232,220,197,.14);color:#9da99d;font:10px/1.5 "Times New Roman",Times,serif;letter-spacing:.04em}
+@media(max-width:620px){
+  footer.site-footer{grid-template-columns:1fr;gap:14px;padding:24px 22px max(24px,env(safe-area-inset-bottom))}
+  .footer-brand,.site-footer .category-line,.site-footer .footer-links,.site-footer .footer-copyright{grid-column:1;grid-row:auto}
+  .footer-monogram{width:38px;height:38px}
+  .footer-wordmark{width:166px;max-height:30px}
+  .site-footer .footer-links{justify-self:start;flex-wrap:wrap;gap:22px}
 }
 @media (prefers-reduced-motion:reduce){.site-header nav,.commerce-page nav{scroll-behavior:auto}}
 
