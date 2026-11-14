@@ -18,5 +18,9 @@ services:
         value: /var/data
       - key: UPLOAD_DIR
         value: /var/data/uploads
+      - key: DATABASE_URL
+        sync: false
+      - key: LIVE_CHECKOUT_ENABLED
+        value: "false"
       - key: ADMIN_SETUP_KEY
         generateValue: true

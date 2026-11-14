@@ -11,6 +11,7 @@ const ROOT = __dirname;
 const DATA_DIR = path.resolve(process.env.DATA_DIR || path.join(ROOT, 'data'));
 const UPLOAD_DIR = path.resolve(process.env.UPLOAD_DIR || path.join(ROOT, 'uploads'));
 const DB_FILE = path.join(DATA_DIR, 'store.json');
+let postgresStore = null;
 const PORT = Number(process.env.PORT || 3000);
 // Render routes public traffic to 0.0.0.0; keep this as the default if HOST isn't configured.
 const HOST = process.env.HOST || '0.0.0.0';
@@ -21,6 +22,7 @@ let setupKeyLogged = false;
 
 const id = () => crypto.randomUUID();
 const shortRef = () => crypto.randomBytes(5).toString('hex').toUpperCase();
+const tokenHash = token => crypto.createHash('sha256').update(String(token || '')).digest('hex');
 const slugify = s => String(s || '').normalize('NFKD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 70);
 const safeEqual = (a, b) => {
   const aa = Buffer.from(String(a || ''));
@@ -61,8 +63,18 @@ let writeQueue = Promise.resolve();
 async function loadDb() {
   await fs.mkdir(DATA_DIR, { recursive: true });
   await fs.mkdir(UPLOAD_DIR, { recursive: true });
-  try { db = JSON.parse(await fs.readFile(DB_FILE, 'utf8')); }
-  catch (err) { if (err.code !== 'ENOENT') throw err; db = seed(); await saveDb(); }
+  let needsSave = false;
+  if (process.env.DATABASE_URL) {
+    const { PostgresStore } = require('./postgres-store');
+    postgresStore = new PostgresStore(process.env.DATABASE_URL);
+    await postgresStore.initialize();
+    db = await postgresStore.load();
+  }
+  if (!db) {
+    try { db = JSON.parse(await fs.readFile(DB_FILE, 'utf8')); }
+    catch (err) { if (err.code !== 'ENOENT') throw err; db = seed(); needsSave = true; }
+    if (postgresStore) needsSave = true;
+  }
   if (!Array.isArray(db.products)) db.products = [];
   if (!Array.isArray(db.customers)) db.customers = [];
   if (!db.customerSessions) db.customerSessions = {};
@@ -74,6 +86,7 @@ async function loadDb() {
   if (db.settings.shippingCents === undefined) db.settings.shippingCents = null;
   if (db.settings.automaticTaxEnabled === undefined) db.settings.automaticTaxEnabled = false;
   if (db.settings.vatRegistered === undefined) db.settings.vatRegistered = false;
+  if (!Array.isArray(db.processedStripeEvents)) db.processedStripeEvents = [];
   let migrated=false;
   const watches=db.collections.find(c=>c.id==='col-watches');
   if(watches&&(watches.name==='Luxury Watches'||watches.slug==='luxury-watches')){watches.name='Watches';watches.slug='watches';watches.description='Luxury timepieces';migrated=true;}
@@ -92,14 +105,24 @@ async function loadDb() {
     db.version=4;migrated=true;
   }
   for(const p of db.products){if(!Number.isFinite(Number(p.vatRate))){p.vatRate=20;migrated=true;}if(p.brand===undefined){p.brand='';migrated=true;}if(p.bullionType===undefined){p.bullionType='';migrated=true;}if(p.gemstoneType===undefined){p.gemstoneType='';migrated=true;}}
-  if(migrated)await saveDb();
+  for (const key of Object.keys(db.sessions)) {
+    if (!/^[a-f0-9]{64}$/.test(key)) { db.sessions[tokenHash(key)] = db.sessions[key]; delete db.sessions[key]; migrated = true; }
+  }
+  for (const key of Object.keys(db.customerSessions)) {
+    if (!/^[a-f0-9]{64}$/.test(key)) { db.customerSessions[tokenHash(key)] = db.customerSessions[key]; delete db.customerSessions[key]; migrated = true; }
+  }
+  if(migrated||needsSave)await saveDb();
   if (!db.admin && !setupKeyLogged) { console.log(`Owner setup key: ${db.setupKey || 'set ADMIN_SETUP_KEY in the environment'}`); setupKeyLogged = true; }
 }
 function saveDb() {
+  // Capture a consistent point-in-time snapshot before waiting behind previous writes.
+  const snapshot = structuredClone(db);
+  const serialized = postgresStore ? null : JSON.stringify(snapshot, null, 2);
   // Recover the queue after an individual disk failure so later writes can retry.
   writeQueue = writeQueue.catch(() => {}).then(async () => {
+    if (postgresStore) return postgresStore.save(snapshot);
     const tmp = `${DB_FILE}.${process.pid}.tmp`;
-    await fs.writeFile(tmp, JSON.stringify(db, null, 2), { mode: 0o600 });
+    await fs.writeFile(tmp, serialized, { mode: 0o600 });
     await fs.rename(tmp, DB_FILE);
   });
   return writeQueue;
@@ -128,11 +151,11 @@ function publicProduct(p) {
 }
 function sessionFrom(req) {
   const cookie=String(req.headers.cookie||'').split(';').map(v=>v.trim()).find(v=>v.startsWith('bireqdar_session='));
-  return cookie ? decodeURIComponent(cookie.slice('bireqdar_session='.length)) : '';
+  return cookie ? tokenHash(decodeURIComponent(cookie.slice('bireqdar_session='.length))) : '';
 }
 function customerTokenFrom(req) {
   const cookie=String(req.headers.cookie||'').split(';').map(v=>v.trim()).find(v=>v.startsWith('bireqdar_customer_session='));
-  return cookie ? decodeURIComponent(cookie.slice('bireqdar_customer_session='.length)) : '';
+  return cookie ? tokenHash(decodeURIComponent(cookie.slice('bireqdar_customer_session='.length))) : '';
 }
 function customerSession(req) {
   const token=customerTokenFrom(req), session=db.customerSessions[token];
@@ -142,7 +165,7 @@ function customerSession(req) {
 function publicCustomer(customer) { return {id:customer.id,name:customer.name,email:customer.email}; }
 function customerCookie(token,maxAge=2592000) { const secure=APP_URL.startsWith('https://')?' Secure;':'';return `bireqdar_customer_session=${encodeURIComponent(token)}; HttpOnly; SameSite=Lax; Path=/; Max-Age=${maxAge};${secure}`; }
 function adminCookie(token,maxAge=43200) { const secure=APP_URL.startsWith('https://')?' Secure;':'';return `bireqdar_session=${encodeURIComponent(token)}; HttpOnly; SameSite=Strict; Path=/; Max-Age=${maxAge};${secure}`; }
-function issueCustomerSession(customer) { const token=crypto.randomBytes(32).toString('hex');db.customerSessions[token]={customerId:customer.id,expiresAt:Date.now()+30*24*60*60*1000};return token; }
+function issueCustomerSession(customer) { const token=crypto.randomBytes(32).toString('hex');db.customerSessions[tokenHash(token)]={customerId:customer.id,expiresAt:Date.now()+30*24*60*60*1000};return token; }
 function requireAdmin(req,res) {
   const token=sessionFrom(req); const expires=db.sessions[token];
   if (!token || !expires || expires < Date.now()) { if (token) { delete db.sessions[token]; saveDb(); } send(res,401,{error:'Please sign in to the owner area.'}); return false; }
@@ -185,9 +208,20 @@ async function persistImage(input) {
   await fs.writeFile(path.join(UPLOAD_DIR,filename),buffer,{flag:'wx'});
   return `/uploads/${filename}`;
 }
+function assertLiveCheckoutReady(items) {
+  const key = process.env.STRIPE_SECRET_KEY || '';
+  if (!key.startsWith('sk_live_')) return;
+  if (process.env.LIVE_CHECKOUT_ENABLED !== 'true') throw Object.assign(new Error('Live payments are disabled until the store owner completes launch checks.'),{status:503});
+  if (!postgresStore) throw Object.assign(new Error('Live checkout requires the connected PostgreSQL database.'),{status:503});
+  if (!APP_URL.startsWith('https://') || !process.env.STRIPE_WEBHOOK_SECRET) throw Object.assign(new Error('Configure the secure store URL and Stripe payment webhook before live checkout.'),{status:503});
+  if (db.settings.shippingCents === null || db.settings.shippingCents === undefined) throw Object.assign(new Error('Configure the delivery fee before live checkout.'),{status:503});
+  if (db.settings.vatRegistered && !db.settings.automaticTaxEnabled) throw Object.assign(new Error('Configure Stripe automatic tax before live checkout.'),{status:503});
+  if ((items || []).some(item => item.isDemo)) throw Object.assign(new Error('Sample products cannot be sold with live payments.'),{status:400});
+}
 async function stripeCheckout(order, req) {
   const key=process.env.STRIPE_SECRET_KEY;
   if (!key) return null;
+  assertLiveCheckoutReady(order.items);
   if (order.items.some(item=>item.isDemo)) {
     if (key.startsWith('sk_live_')) throw Object.assign(new Error('Sample listings cannot be charged in live mode. Replace them with verified products first.'),{status:400});
     return null;
@@ -202,7 +236,7 @@ async function stripeCheckout(order, req) {
     params.set(`line_items[${i}][price_data][currency]`,it.currency.toLowerCase()); params.set(`line_items[${i}][price_data][unit_amount]`,String(it.priceCents)); params.set(`line_items[${i}][price_data][tax_behavior]`,'inclusive'); params.set(`line_items[${i}][price_data][product_data][name]`,it.name); if(it.vatRate===0)params.set(`line_items[${i}][price_data][product_data][tax_code]`,'txcd_00000000'); params.set(`line_items[${i}][quantity]`,String(it.quantity));
   });
   if (Number(db.settings.shippingCents)>0) { const i=order.items.length; params.set(`line_items[${i}][price_data][currency]`,order.currency.toLowerCase()); params.set(`line_items[${i}][price_data][unit_amount]`,String(db.settings.shippingCents)); params.set(`line_items[${i}][price_data][tax_behavior]`,'inclusive'); params.set(`line_items[${i}][price_data][product_data][name]`,'Delivery'); params.set(`line_items[${i}][quantity]`,'1'); }
-  const response=await fetch('https://api.stripe.com/v1/checkout/sessions',{method:'POST',headers:{Authorization:`Bearer ${key}`,'Content-Type':'application/x-www-form-urlencoded'},body:params});
+  const response=await fetch('https://api.stripe.com/v1/checkout/sessions',{method:'POST',headers:{Authorization:`Bearer ${key}`,'Content-Type':'application/x-www-form-urlencoded','Idempotency-Key':`checkout-${order.checkoutRequestId||order.id}`},body:params});
   const data=await response.json();
   if (!response.ok) throw Object.assign(new Error(data.error?.message || 'Could not start secure checkout.'),{status:502});
   return data;
@@ -228,7 +262,9 @@ function computeOrder(lines, country='') {
 async function handleApi(req,res,url) {
   const route=url.pathname;
   if (req.method==='GET' && route==='/api/catalog') {
-    return send(res,200,{products:db.products.filter(p=>p.published).map(publicProduct),collections:db.collections.filter(c=>c.active).map(({id,name,slug,description})=>({id,name,slug,description})),currency:db.settings.currency,storeName:db.settings.storeName,shippingCents:db.settings.shippingCents,paymentConfigured:!!process.env.STRIPE_SECRET_KEY,vatRegistered:!!db.settings.vatRegistered});
+    const liveKey=(process.env.STRIPE_SECRET_KEY||'').startsWith('sk_live_');
+    const checkoutAvailable=!liveKey||(process.env.LIVE_CHECKOUT_ENABLED==='true'&&!!postgresStore&&APP_URL.startsWith('https://')&&!!process.env.STRIPE_WEBHOOK_SECRET&&db.settings.shippingCents!==null&&db.settings.shippingCents!==undefined&&(!db.settings.vatRegistered||db.settings.automaticTaxEnabled)&&!db.products.some(p=>p.published&&p.isDemo));
+    return send(res,200,{products:db.products.filter(p=>p.published).map(publicProduct),collections:db.collections.filter(c=>c.active).map(({id,name,slug,description})=>({id,name,slug,description})),currency:db.settings.currency,storeName:db.settings.storeName,shippingCents:db.settings.shippingCents,paymentConfigured:!!process.env.STRIPE_SECRET_KEY,checkoutAvailable,vatRegistered:!!db.settings.vatRegistered});
   }
   if (req.method==='GET' && route==='/api/product') {
     const p=db.products.find(x=>x.slug===url.searchParams.get('slug')&&x.published); return p?send(res,200,{product:publicProduct(p),collection:db.collections.find(c=>c.id===p.collectionId)?.name||''}):send(res,404,{error:'This piece is not available.'});
@@ -267,14 +303,23 @@ async function handleApi(req,res,url) {
     const b=await readJson(req); const customer={name:clean(b.name,100),email:clean(b.email,254),phone:clean(b.phone,40),address1:clean(b.address1,160),address2:clean(b.address2,160),city:clean(b.city,100),postalCode:clean(b.postalCode,30),country:clean(b.country,80)};
     if (!customer.name||!validEmail(customer.email)||!customer.address1||!customer.city||!customer.postalCode||!customer.country) return send(res,400,{error:'Complete your name, email and delivery address.'});
     if (b.acceptTerms!==true) return send(res,400,{error:'Please confirm your delivery details and privacy notice.'});
-    const account=customerSession(req)?.customer||null;if(account){customer.name=account.name;customer.email=account.email;} const totals=computeOrder(b.items,customer.country); const shippingCents=Number.isInteger(db.settings.shippingCents)?db.settings.shippingCents:0;
-    if (process.env.STRIPE_SECRET_KEY?.startsWith('sk_live_') && (db.settings.shippingCents===null || (db.settings.vatRegistered&&!db.settings.automaticTaxEnabled))) return send(res,503,{error:'Live checkout is not ready. Configure delivery pricing and Stripe automatic tax in Owner Studio first.'});
-    const order={id:id(),reference:`BC-${shortRef()}`,createdAt:new Date().toISOString(),status:'payment_pending',paymentMode:process.env.STRIPE_SECRET_KEY&&!totals.items.some(item=>item.isDemo)?'stripe':'preview',customer,customerId:account?.id||null,items:totals.items,subtotalCents:totals.total,taxCents:totals.tax,shippingCents,totalCents:totals.total+shippingCents,currency:totals.currency};
+    const account=customerSession(req)?.customer||null;if(account){customer.name=account.name;customer.email=account.email;}
+    const requestId= /^[a-f0-9-]{36}$/i.test(String(b.requestId||'')) ? String(b.requestId).toLowerCase() : id();
+    const prior=db.orders.find(o=>o.checkoutRequestId===requestId);
+    if(prior){
+      if(prior.paymentMode==='stripe'){
+        const session=await stripeCheckout(prior,req);
+        if(session){prior.stripeSessionId=session.id;await saveDb();return send(res,200,{ok:true,redirectUrl:session.url,reference:prior.reference});}
+      }
+      return send(res,200,{ok:true,preview:true,reference:prior.reference,redirectUrl:`/order.html?ref=${encodeURIComponent(prior.reference)}&preview=1`});
+    }
+    const totals=computeOrder(b.items,customer.country); assertLiveCheckoutReady(totals.items); const shippingCents=Number.isInteger(db.settings.shippingCents)?db.settings.shippingCents:0;
+    const order={id:id(),reference:`BC-${shortRef()}`,checkoutRequestId:requestId,createdAt:new Date().toISOString(),status:'payment_pending',paymentMode:process.env.STRIPE_SECRET_KEY&&!totals.items.some(item=>item.isDemo)?'stripe':'preview',customer,customerId:account?.id||null,items:totals.items,subtotalCents:totals.total,taxCents:totals.tax,shippingCents,totalCents:totals.total+shippingCents,currency:totals.currency};
     db.orders.unshift(order); await saveDb();
     try {
       const session=await stripeCheckout(order,req);
       if (session) { order.stripeSessionId=session.id; order.paymentMode='stripe'; await saveDb(); return send(res,200,{ok:true,redirectUrl:session.url,reference:order.reference}); }
-    } catch(err) { db.orders=db.orders.filter(o=>o.id!==order.id); await saveDb(); throw err; }
+    } catch(err) { order.status='checkout_error';order.checkoutErrorAt=new Date().toISOString();await saveDb(); throw err; }
     return send(res,200,{ok:true,preview:true,reference:order.reference,redirectUrl:`/order.html?ref=${encodeURIComponent(order.reference)}&preview=1`});
   }
   if (req.method==='GET' && route==='/api/order') {
@@ -291,14 +336,21 @@ async function handleApi(req,res,url) {
     const expected=crypto.createHmac('sha256',secret).update(`${timestampText}.${raw.toString('utf8')}`).digest('hex');
     if (!signatures.some(signature=>safeEqual(expected,signature))) return text(res,400,'Invalid signature.');
     let event; try { event=JSON.parse(raw.toString('utf8')); } catch { return text(res,400,'Invalid event.'); }
-    if (event.type==='checkout.session.completed') {
+    const eventId=clean(event.id,255);
+    if (eventId && postgresStore && await postgresStore.hasWebhookEvent(eventId)) return text(res,200,'ok');
+    if (eventId && !postgresStore && db.processedStripeEvents.includes(eventId)) return text(res,200,'ok');
+    if (event.type==='checkout.session.completed' || event.type==='checkout.session.async_payment_succeeded') {
       const session=event.data?.object; const order=db.orders.find(o=>o.stripeSessionId===session?.id);
-      if (order && order.status!=='paid' && session.payment_status==='paid') {
+      if (order && session.metadata?.orderId===order.id && session.client_reference_id===order.reference && order.status!=='paid' && session.payment_status==='paid') {
         order.status='paid'; order.paidAt=new Date().toISOString(); if (Number.isInteger(session.amount_total)) order.totalCents=session.amount_total; if (Number.isInteger(session.total_details?.amount_tax)) order.taxCents=session.total_details.amount_tax;
         for (const item of order.items) { const p=db.products.find(x=>x.id===item.id); if (p) p.stock=Math.max(0,p.stock-item.quantity); }
         await saveDb();
       }
+    } else if (event.type==='checkout.session.expired' || event.type==='checkout.session.async_payment_failed') {
+      const session=event.data?.object; const order=db.orders.find(o=>o.stripeSessionId===session?.id);
+      if (order && session.metadata?.orderId===order.id && session.client_reference_id===order.reference && order.status==='payment_pending') { order.status='cancelled'; order.cancelledAt=new Date().toISOString(); await saveDb(); }
     }
+    if(eventId){if(postgresStore)await postgresStore.rememberWebhookEvent(eventId);else{db.processedStripeEvents.push(eventId);if(db.processedStripeEvents.length>10000)db.processedStripeEvents=db.processedStripeEvents.slice(-5000);await saveDb();}}
     return text(res,200,'ok');
   }
   if (route.startsWith('/api/admin/')) {
@@ -309,14 +361,14 @@ async function handleApi(req,res,url) {
       const username=clean(b.username,50), password=String(b.password||'');
       if (!/^[a-zA-Z0-9._-]{3,50}$/.test(username)||password.length<12||password.length>200) return send(res,400,{error:'Use a 3–50 character username and a password of at least 12 characters.'});
       const salt=crypto.randomBytes(16).toString('hex'); const hash=crypto.scryptSync(password,salt,64).toString('hex'); db.admin={username,salt,hash,createdAt:new Date().toISOString()}; db.setupKey=null;
-      const token=crypto.randomBytes(32).toString('hex'); db.sessions[token]=Date.now()+1000*60*60*12; await saveDb();
+      const token=crypto.randomBytes(32).toString('hex'); db.sessions[tokenHash(token)]=Date.now()+1000*60*60*12; await saveDb();
       return send(res,201,{ok:true,username},{'Set-Cookie':adminCookie(token)});
     }
     if (req.method==='POST'&&route==='/api/admin/login') {
       const b=await readJson(req); const username=clean(b.username,50),password=String(b.password||''); const now=Date.now();
       const recent=(loginAttempts.get(req.socket.remoteAddress)||[]).filter(t=>now-t<15*60*1000); if (recent.length>=8) return send(res,429,{error:'Too many attempts. Wait 15 minutes and try again.'});
       if (!db.admin || username!==db.admin.username || !safeEqual(crypto.scryptSync(password,db.admin.salt,64).toString('hex'),db.admin.hash)) { recent.push(now);loginAttempts.set(req.socket.remoteAddress,recent);return send(res,401,{error:'The username or password is incorrect.'}); }
-      loginAttempts.delete(req.socket.remoteAddress); const token=crypto.randomBytes(32).toString('hex');db.sessions[token]=Date.now()+1000*60*60*12;await saveDb();
+      loginAttempts.delete(req.socket.remoteAddress); const token=crypto.randomBytes(32).toString('hex');db.sessions[tokenHash(token)]=Date.now()+1000*60*60*12;await saveDb();
       return send(res,200,{ok:true,username},{'Set-Cookie':adminCookie(token)});
     }
     if (req.method==='POST'&&route==='/api/admin/logout') { const token=sessionFrom(req);delete db.sessions[token];await saveDb();return send(res,200,{ok:true},{'Set-Cookie':adminCookie('',0)}); }
