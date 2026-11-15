@@ -29,6 +29,8 @@ The current sample products are explicitly flagged as demonstration listings. Re
 
 The included `db/schema.sql` creates relational tables for products, collections, customers, orders, order items, reservations, sessions and Stripe webhook event IDs. Some app-specific fields are also kept as JSONB so the current owner tools can evolve without losing data. The initial migration imports existing `data/store.json` when PostgreSQL is empty.
 
+The version 5 catalogue migration adds a set of AI-created, unbranded concept images from `assets/catalogue/` and refreshed sample descriptions to seeded listings. These are preview assets only, not photographs or verified stock. Sample listings stay marked as demonstrations and cannot be charged with a live Stripe key. `GET /api/store` reports whether the app is using PostgreSQL or local JSON and returns the product/collection counts; `GET /api/catalog` contains the public catalogue.
+
 1. Create a **paid Render PostgreSQL** database for production. Render's free PostgreSQL database expires after 30 days, so it is not suitable for durable customer orders. Review Render's current database price and backup/retention options in your account.
 2. Keep the web service and database in the same Render region, then set the web service's `DATABASE_URL` to the database's **internal** connection URL.
 3. Keep the current persistent disk mounted at `/var/data` for product uploads. PostgreSQL stores catalogue and order records; the persistent disk stores uploaded image files.

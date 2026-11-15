@@ -3,7 +3,7 @@ services:
     name: bireqdar-storefront
     runtime: node
     plan: 0.5c-512mb
-    region: frankfurt
+    region: oregon
     buildCommand: npm install --omit=dev
     startCommand: npm start
     healthCheckPath: /api/store

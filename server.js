@@ -55,7 +55,33 @@ function seed() {
     { id:'demo-limited-bullion', slug:'limited-edition-bullion-enquiry-sample', name:'Limited Edition Bullion — Enquiry Sample', type:'bullion', bullionType:'limited-edition', category:'', collectionId:'col-bullion', short:'Preview listing for a limited edition bullion piece.', description:'Demonstration listing only. Confirm edition, weight, purity, tax treatment, pricing and availability before purchase.', priceCents:null, stock:0, currency:'GBP', image:'', published:true, isDemo:true, inquiryOnly:true, specifications:[] },
     { id:'demo-watch', slug:'watch-enquiry-sample', name:'Watch — Enquiry Sample', type:'watch', brand:'', category:'', collectionId:'col-watches', short:'Ask about the current selection and verified specifications.', description:'Sample watch listing. Add the brand, reference, condition, included items, price and verified specifications before publication.', priceCents:null, stock:0, currency:'GBP', image:'', published:true, isDemo:true, inquiryOnly:true, specifications:[] }
   ];
-  return { version:4, customers:[], customerSessions:{}, setupKey: process.env.ADMIN_SETUP_KEY || crypto.randomBytes(24).toString('hex'), admin:null, sessions:{}, settings:{ currency:'GBP', storeName:'BIREQDAR&CO.', shippingCents:null, automaticTaxEnabled:false, vatRegistered:false }, collections, products, orders:[], reservations:[] };
+  const starterCopy = {
+    'demo-gold': { name:'Emerald Line Pendant — Concept Listing', short:'A considered pendant concept in gold with an emerald-toned centre stone.', description:'An illustrative design study pairing an oval green centre stone with a pared-back gold setting. This AI-created image is not a photograph of an available item. Confirm metal fineness, stone origin, dimensions, price and availability before offering a piece.', image:'/assets/catalogue/emerald-line-pendant.jpg' },
+    'demo-silver': { name:'Silver Curve Bracelet — Concept Listing', short:'A fluid silver bracelet concept with a sculptural clasp.', description:'A refined bracelet study in polished silver, shown on emerald velvet. This AI-created image is illustrative only; it does not establish the metal fineness, dimensions, finish options, price or availability of a real piece.', image:'/assets/catalogue/silver-curve-bracelet.jpg' },
+    'demo-diamond': { name:'Brilliant Stud Earrings — Concept Listing', short:'A classic pair of brilliant-cut stud earrings, shown as a design concept.', description:'A minimal diamond-stud design study. The image is AI-created and does not confirm whether any real stones are natural or lab-grown, nor their grading, setting metal, dimensions, price or availability.', image:'/assets/catalogue/diamond-studs-concept.jpg', gemstoneType:'' },
+    'demo-necklace': { name:'Gold Necklace — Concept Listing', short:'A delicate necklace concept with an oval green centre stone.', description:'A fine necklace study in a quiet, sculptural setting. This AI-created image is a visual concept, not a product photograph; metal fineness, stone origin, dimensions, price and availability remain unverified.', image:'/assets/catalogue/emerald-line-pendant.jpg' },
+    'demo-diamond-pendant': { name:'Pear Pendant — Concept Listing', short:'A pear-shaped clear-stone pendant design study.', description:'A delicate pendant concept with a pear-shaped clear stone. This AI-created image does not confirm the stone origin, including natural or lab-grown status, grading, metal, dimensions, price or availability.', image:'/assets/catalogue/pear-diamond-pendant-concept.jpg', gemstoneType:'' },
+    'demo-gemstone': { name:'Sapphire Setting — Concept Listing', short:'A deep-blue gemstone ring concept in a warm gold setting.', description:'A sapphire-inspired ring design study with a deep-blue centre stone. This AI-created image is illustrative; stone identity, origin, treatment, grading, metal fineness, dimensions, price and availability must be verified for any real item.', image:'/assets/catalogue/sapphire-ring-concept.jpg', gemstoneType:'gemstone' },
+    'demo-bespoke-ring': { name:'Heirloom Ring — Bespoke Concept', short:'A starting point for a ring shaped around your brief.', description:'An illustrative bespoke ring concept. Work with our team to define the design, materials, stone, dimensions, timing and quotation; this image does not depict a commissioned or available piece.', image:'/assets/catalogue/heirloom-ring-concept.jpg' },
+    'demo-bullion': { name:'Gold Bar — Enquiry Concept', short:'Ask about current gold-bar availability and verified specifications.', description:'Generic AI-created bullion artwork for the preview catalogue. It is not an offer for a specific bar. Confirm issuer, weight, purity, price, delivery, availability and applicable tax treatment before any transaction.', image:'/assets/catalogue/bullion-still-life-concept.jpg' },
+    'demo-gold-coin': { name:'Gold Coin — Enquiry Concept', short:'Enquire about coin selection and item-specific details.', description:'Generic AI-created bullion artwork for the preview catalogue. No coin, year, issuer, condition, weight, purity, price or availability is represented; request verified details before considering a transaction.', image:'/assets/catalogue/bullion-still-life-concept.jpg' },
+    'demo-silver-bar': { name:'Silver Bar — Enquiry Concept', short:'Ask us for current silver-bar specifications and availability.', description:'Generic AI-created bullion artwork for the preview catalogue. No specific bar, issuer, weight, purity, price or availability is represented; confirm these details and applicable tax treatment before a transaction.', image:'/assets/catalogue/bullion-still-life-concept.jpg' },
+    'demo-silver-coin': { name:'Silver Coin — Enquiry Concept', short:'Enquire about silver coins and verified details.', description:'Generic AI-created bullion artwork for the preview catalogue. No specific coin, year, issuer, condition, weight, purity, price or availability is represented; request verified details before considering a transaction.', image:'/assets/catalogue/bullion-still-life-concept.jpg' },
+    'demo-limited-bullion': { name:'Limited Edition Bullion — Enquiry Concept', short:'Ask about edition details and current availability.', description:'A generic bullion display concept, not a particular limited edition. Confirm the maker, edition, authenticity, weight, purity, price, availability and tax treatment for any real item.', image:'/assets/catalogue/bullion-still-life-concept.jpg' },
+    'demo-watch': { name:'Emerald Dial Watch — Concept Listing', short:'An unbranded timepiece concept with a deep-green dial.', description:'An AI-created, unbranded watch design study. It does not represent a specific manufacturer, reference, movement, condition, authenticity, included items, price or available stock.', image:'/assets/catalogue/emerald-dial-watch-concept.jpg' }
+  };
+  for (const product of products) Object.assign(product, starterCopy[product.id] || {});
+  const collectionCopy = {
+    'col-gold':'Gold jewellery concepts, from considered pendants to everyday forms.',
+    'col-silver':'Silver jewellery concepts with a quiet, sculptural character.',
+    'col-diamond':'Diamond design studies; origin and grading must be verified for real pieces.',
+    'col-gemstones':'Gemstone design studies; identity, origin and treatment require verification.',
+    'col-bullion':'Bullion enquiries; confirm issuer, weight, purity, price and tax treatment.',
+    'col-watches':'Timepiece enquiries; verify brand, reference, condition and authenticity.',
+    'col-bespoke':'A starting point for personal commissions, shaped around your brief.'
+  };
+  for (const collection of collections) collection.description = collectionCopy[collection.id] || collection.description;
+  return { version:5, customers:[], customerSessions:{}, setupKey: process.env.ADMIN_SETUP_KEY || crypto.randomBytes(24).toString('hex'), admin:null, sessions:{}, settings:{ currency:'GBP', storeName:'BIREQDAR&CO.', shippingCents:null, automaticTaxEnabled:false, vatRegistered:false }, collections, products, orders:[], reservations:[] };
 }
 
 let db;
@@ -103,6 +129,20 @@ async function loadDb() {
     if(!db.collections.some(c=>c.id===gemstoneCollection.id))db.collections.push(gemstoneCollection);
     for(const seedProduct of seed().products){const old=db.products.find(p=>p.id===seedProduct.id);if(!old)db.products.push(seedProduct);else if(['demo-diamond','demo-diamond-pendant'].includes(old.id)){old.gemstoneType=seedProduct.gemstoneType;old.name=seedProduct.name;old.slug=seedProduct.slug;old.short=seedProduct.short;}}
     db.version=4;migrated=true;
+  }
+  if(Number(db.version||0)<5){
+    const starter=seed();
+    for(const sample of starter.products){
+      const existing=db.products.find(product=>product.id===sample.id);
+      if(existing&&existing.isDemo!==false){
+        for(const key of ['name','short','description','image','gemstoneType']) if(sample[key]!==undefined)existing[key]=sample[key];
+      }
+    }
+    for(const collection of starter.collections){
+      const existing=db.collections.find(item=>item.id===collection.id);
+      if(existing)existing.description=collection.description;
+    }
+    db.version=5;migrated=true;
   }
   for(const p of db.products){if(!Number.isFinite(Number(p.vatRate))){p.vatRate=20;migrated=true;}if(p.brand===undefined){p.brand='';migrated=true;}if(p.bullionType===undefined){p.bullionType='';migrated=true;}if(p.gemstoneType===undefined){p.gemstoneType='';migrated=true;}}
   for (const key of Object.keys(db.sessions)) {
@@ -261,6 +301,9 @@ function computeOrder(lines, country='') {
 }
 async function handleApi(req,res,url) {
   const route=url.pathname;
+  if (req.method==='GET' && route==='/api/store') {
+    return send(res,200,{ok:true,database:postgresStore?'postgres':'local-json',products:db.products.length,collections:db.collections.length});
+  }
   if (req.method==='GET' && route==='/api/catalog') {
     const liveKey=(process.env.STRIPE_SECRET_KEY||'').startsWith('sk_live_');
     const checkoutAvailable=!liveKey||(process.env.LIVE_CHECKOUT_ENABLED==='true'&&!!postgresStore&&APP_URL.startsWith('https://')&&!!process.env.STRIPE_WEBHOOK_SECRET&&db.settings.shippingCents!==null&&db.settings.shippingCents!==undefined&&(!db.settings.vatRegistered||db.settings.automaticTaxEnabled)&&!db.products.some(p=>p.published&&p.isDemo));
