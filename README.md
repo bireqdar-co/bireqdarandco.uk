@@ -29,7 +29,7 @@ The current sample products are explicitly flagged as demonstration listings. Re
 
 The included `db/schema.sql` creates relational tables for products, collections, customers, orders, order items, reservations, sessions and Stripe webhook event IDs. Some app-specific fields are also kept as JSONB so the current owner tools can evolve without losing data. The initial migration imports existing `data/store.json` when PostgreSQL is empty.
 
-The version 5 catalogue migration adds a set of AI-created, unbranded concept images from `assets/catalogue/` and refreshed sample descriptions to seeded listings. These are preview assets only, not photographs or verified stock. Sample listings stay marked as demonstrations and cannot be charged with a live Stripe key. `GET /api/store` reports whether the app is using PostgreSQL or local JSON and returns the product/collection counts; `GET /api/catalog` contains the public catalogue.
+The version 6 catalogue migration adds AI-created, unbranded concept images from `assets/catalogue/`, refreshed sample descriptions and additional concept listings to the seeded catalogue. Bespoke commissions are submitted through the request form rather than listed as sample products. These are preview assets only, not photographs or verified stock. Sample listings stay marked as demonstrations and cannot be charged with a live Stripe key. `GET /api/store` reports whether the app is using PostgreSQL or local JSON and returns the product/collection counts; `GET /api/catalog` contains the public catalogue.
 
 1. Create a **paid Render PostgreSQL** database for production. Render's free PostgreSQL database expires after 30 days, so it is not suitable for durable customer orders. Review Render's current database price and backup/retention options in your account.
 2. Keep the web service and database in the same Render region, then set the web service's `DATABASE_URL` to the database's **internal** connection URL.
@@ -71,3 +71,9 @@ UK VAT depends on the business's VAT registration, goods classification and cust
 - [Render PostgreSQL: create and connect](https://render.com/docs/postgresql-creating-connecting)
 - [Render free services and database limits](https://render.com/docs/free)
 - [Stripe Checkout fulfillment and webhooks](https://docs.stripe.com/payments/checkout/fulfill-orders)
+
+## Owner setup key and database reference
+
+The Owner Studio setup key is **not** a permanent API key. On first startup, if no owner account exists, the server prints `Owner setup key: …` in the Render web service logs. Open the service's **Logs**, find the most recent startup entry, and use that key at `/admin.html` to create your owner username and password. Keep the key private. After creating the owner account, sign in with those credentials; the setup key is no longer your login. If the generated key is no longer available, set a new private `ADMIN_SETUP_KEY` value in the Render service environment and redeploy while owner setup is still pending; the app updates the stored setup key from that value. Do not change this after creating the owner account.
+
+For the table-by-table structure and safe read-only SQL examples, see [`db/SCHEMA.md`](db/SCHEMA.md). The version 6 migration adds more preview catalogue items and removes the sample bespoke product; bespoke is now request-led. New bespoke enquiries save the customer's style, metal, optional gold purity and stone carat, size, approximate weight, optional description, contact details and optional image in the reservations JSONB record. A signed-in customer uses their saved name/email; guests enter their contact details. Attached reference images are limited to 2 MB and remain in PostgreSQL with the request.
