@@ -3,7 +3,7 @@
  const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
  const categoryNames={necklaces:'Necklaces',pendants:'Pendants',earrings:'Earrings',bracelets:'Bracelets',rings:'Rings'};
  const eligibleStyles=new Set(['gold','silver','diamonds']);
- const jewelleryCollectionOptions=[['gold','Gold'],['silver','Silver'],['gemstones','Gemstones'],['bespoke','Bespoke']];
+ const jewelleryCollectionOptions=[['gold','Gold'],['silver','Silver'],['gemstones','Gemstones']];
  const bullionOptions=[['all','All Bullions'],['gold-bar','Gold Bar'],['gold-coin','Gold Coin'],['silver-bar','Silver Bar'],['silver-coin','Silver Coin'],['limited-edition','Limited Edition Bullions']];
  const gemstoneOptions=[['all','All Gemstones & Diamonds'],['gemstone','Gemstones'],['natural-diamond','Natural Diamonds'],['lab-grown-diamond','Lab-Grown Diamonds']];
  const brandOptions=[['all','All Watch Brands'],['rolex','Rolex'],['patek-philippe','Patek Philippe'],['audemars-piguet','Audemars Piguet'],['cartier','Cartier'],['omega','Omega'],['richard-mille','Richard Mille'],['vacheron-constantin','Vacheron Constantin']];

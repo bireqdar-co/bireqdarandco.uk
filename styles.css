@@ -648,3 +648,8 @@ footer.site-footer {
   .site-footer .footer-signature { max-width: 280px; font-size: 9px; letter-spacing: .14em; }
   .site-footer .footer-wordmark { width: 190px; }
 }
+.site-footer .footer-social-icons { display: flex; align-items: center; gap: 10px; margin-top: 3px; }
+.site-footer .footer-social-icon { display: grid; width: 34px; height: 34px; place-items: center; border: 1px solid rgba(212,175,120,.42); border-radius: 50%; color: #e2c89e; background: rgba(198,164,119,.07); }
+.site-footer .footer-social-icon svg { display: block; width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.site-footer .footer-social-icon svg .social-fill { fill: currentColor; stroke: none; }
+.site-footer .footer-social-icon svg .social-dot { fill: currentColor; stroke: none; }
