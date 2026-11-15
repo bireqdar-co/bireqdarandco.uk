@@ -162,6 +162,28 @@ async function loadDb() {
     if(bespokeSamples.length){db.products=db.products.filter(product=>!(product.type==='bespoke'&&product.isDemo!==false));migrated=true;}
     db.version=6;migrated=true;
   }
+  if(Number(db.version||0)<7){
+    const demoDays=[6,24,58];
+    const demoCarts=[
+      [{id:'demo-gold',quantity:1}],
+      [{id:'demo-silver',quantity:1},{id:'demo-diamond-pendant',quantity:1}],
+      [{id:'demo-gemstone',quantity:1},{id:'demo-necklace',quantity:1}]
+    ];
+    for(let i=0;i<demoCarts.length;i++){
+      const items=demoCarts[i].map(line=>{const product=db.products.find(p=>p.id===line.id);return product?{id:product.id,slug:product.slug,name:product.name,priceCents:product.priceCents,currency:product.currency||'GBP',quantity:line.quantity,isDemo:true,vatRate:Number(product.vatRate)||20,finish:''}:null}).filter(Boolean);
+      if(!items.length)continue;
+      const subtotalCents=items.reduce((sum,item)=>sum+(Number(item.priceCents)||0)*item.quantity,0);
+      const order={id:`order-demo-${i+1}`,reference:`BC-DEMO-${String(i+1).padStart(3,'0')}`,createdAt:new Date(Date.now()-demoDays[i]*86400000).toISOString(),status:'preview',paymentMode:'preview',customer:{name:`Demo Client ${i+1}`,email:`demo.client.${i+1}@example.invalid`,phone:'',address1:'Sample address — no delivery',address2:'',city:'London',postalCode:'DEMO',country:'United Kingdom'},customerId:null,items,subtotalCents,taxCents:0,shippingCents:0,totalCents:subtotalCents,currency:'GBP',isDemo:true};
+      if(!db.orders.some(existing=>existing.id===order.id))db.orders.push(order);
+    }
+    const enquiryRows=[
+      {id:'reservation-demo-1',reference:'BQ-DEMO-001',name:'Demo Client One',email:'demo.enquiry.1@example.invalid',phone:'',message:'I would like to understand the current availability and verified details for a piece in the collection.',productReference:'Gold collection enquiry',type:'enquiry',createdAt:new Date(Date.now()-3*86400000).toISOString(),status:'new',isDemo:true},
+      {id:'reservation-demo-2',reference:'BQ-DEMO-002',name:'Demo Client Two',email:'demo.enquiry.2@example.invalid',phone:'',message:'Could you share the verified reference, condition and included items for a timepiece?',productReference:'Watch availability enquiry',type:'reservation',createdAt:new Date(Date.now()-18*86400000).toISOString(),status:'contacted',isDemo:true},
+      {id:'reservation-demo-3',reference:'BQ-DEMO-003',name:'Demo Client Three',email:'demo.enquiry.3@example.invalid',phone:'',message:'Looking for a made-to-order ring in yellow gold with a centre stone; measurements and details to be discussed.',productReference:'Bespoke commission',type:'bespoke',details:{style:'Ring',metal:'Yellow gold',goldCarat:'18 carat',stoneCarat:'1.20',size:'To be confirmed',weight:'',description:'Illustrative request for the owner dashboard. No real client or commission.',attachment:''},createdAt:new Date(Date.now()-41*86400000).toISOString(),status:'new',isDemo:true}
+    ];
+    for(const sample of enquiryRows)if(!db.reservations.some(r=>r.id===sample.id))db.reservations.push(sample);
+    db.version=7;migrated=true;
+  }
   for(const p of db.products){if(!Number.isFinite(Number(p.vatRate))){p.vatRate=20;migrated=true;}if(p.brand===undefined){p.brand='';migrated=true;}if(p.bullionType===undefined){p.bullionType='';migrated=true;}if(p.gemstoneType===undefined){p.gemstoneType='';migrated=true;}}
   for (const key of Object.keys(db.sessions)) {
     if (!/^[a-f0-9]{64}$/.test(key)) { db.sessions[tokenHash(key)] = db.sessions[key]; delete db.sessions[key]; migrated = true; }
@@ -446,6 +468,7 @@ async function handleApi(req,res,url) {
     if (req.method==='POST'&&route==='/api/admin/logout') { const token=sessionFrom(req);delete db.sessions[token];await saveDb();return send(res,200,{ok:true},{'Set-Cookie':adminCookie('',0)}); }
     if (req.method==='GET'&&route==='/api/admin/me') { if(!requireAdmin(req,res))return;return send(res,200,{username:db.admin.username}); }
     if (!requireAdmin(req,res)) return;
+    if (req.method==='DELETE'&&route==='/api/admin/demo-data') { const ordersBefore=db.orders.length,reservationsBefore=db.reservations.length;db.orders=db.orders.filter(item=>!item.isDemo);db.reservations=db.reservations.filter(item=>!item.isDemo);await saveDb();return send(res,200,{ok:true,removedOrders:ordersBefore-db.orders.length,removedEnquiries:reservationsBefore-db.reservations.length}); }
     if (req.method==='GET'&&route==='/api/admin/data') return send(res,200,{products:db.products,collections:db.collections,orders:db.orders,reservations:db.reservations,settings:db.settings,customerCount:db.customers.length,username:db.admin.username});
     if (req.method==='PUT'&&route==='/api/admin/settings') { const b=await readJson(req);const cur=String(b.currency||'').toUpperCase();if(!allowedCurrencies.has(cur))return send(res,400,{error:'Choose GBP, EUR or USD.'});const ship=b.shippingCents===''||b.shippingCents===null?null:Number(b.shippingCents);if(ship!==null&&(!Number.isInteger(ship)||ship<0||ship>10000000))return send(res,400,{error:'Enter a valid delivery fee, or leave it blank until decided.'});db.settings.currency=cur;for (const p of db.products) p.currency=cur;db.settings.shippingCents=ship;db.settings.automaticTaxEnabled=!!b.automaticTaxEnabled;db.settings.vatRegistered=!!b.vatRegistered;await saveDb();return send(res,200,{ok:true}); }
     if (req.method==='POST'&&route==='/api/admin/upload') { const b=await readJson(req);const image=await persistImage(b.data);return send(res,201,{image}); }
