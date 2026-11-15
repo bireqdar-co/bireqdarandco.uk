@@ -191,6 +191,15 @@ async function loadDb() {
     for(let i=0;i<enquiryNames.length;i++){const enquiry=db.reservations.find(item=>item.id===`reservation-demo-${i+1}`);if(enquiry){enquiry.name=enquiryNames[i][0];enquiry.email=enquiryNames[i][1];}}
     db.version=8;migrated=true;
   }
+  if(Number(db.version||0)<9){
+    const sampleContacts=[
+      {phone:'+44 20 7946 0121',address1:'Sample address — not for delivery',address2:'Preview record only',city:'London',postalCode:'DEMO-001',country:'United Kingdom'},
+      {phone:'+44 20 7946 0122',address1:'Sample address — not for delivery',address2:'Preview record only',city:'London',postalCode:'DEMO-002',country:'United Kingdom'},
+      {phone:'+44 20 7946 0123',address1:'Sample address — not for delivery',address2:'Preview record only',city:'London',postalCode:'DEMO-003',country:'United Kingdom'}
+    ];
+    for(let i=0;i<sampleContacts.length;i++){const order=db.orders.find(item=>item.id===`order-demo-${i+1}`);if(order)order.customer={...order.customer,...sampleContacts[i]};}
+    db.version=9;migrated=true;
+  }
   for(const p of db.products){if(!Number.isFinite(Number(p.vatRate))){p.vatRate=20;migrated=true;}if(p.brand===undefined){p.brand='';migrated=true;}if(p.bullionType===undefined){p.bullionType='';migrated=true;}if(p.gemstoneType===undefined){p.gemstoneType='';migrated=true;}}
   for (const key of Object.keys(db.sessions)) {
     if (!/^[a-f0-9]{64}$/.test(key)) { db.sessions[tokenHash(key)] = db.sessions[key]; delete db.sessions[key]; migrated = true; }
@@ -250,6 +259,32 @@ function customerSession(req) {
   return {token,customer:db.customers.find(c=>c.id===session.customerId)||null};
 }
 function publicCustomer(customer) { return {id:customer.id,name:customer.name,email:customer.email}; }
+function adminCustomerRows() {
+  const customers=new Map();
+  const rowFor=(email,initial={})=>{
+    const key=String(email||'').trim().toLowerCase();
+    if(!key)return null;
+    if(!customers.has(key))customers.set(key,{id:initial.id||`guest-${crypto.createHash('sha1').update(key).digest('hex').slice(0,12)}`,name:initial.name||'',email:key,phone:'',address1:'',address2:'',city:'',postalCode:'',country:'',createdAt:initial.createdAt||'',registered:!!initial.registered,isDemo:false,orderCount:0,previewOrders:0,paidOrders:0,spentCents:0,spentByCurrency:{},currency:db.settings.currency||'GBP',lastOrderAt:''});
+    const row=customers.get(key);
+    for(const field of ['name','phone','address1','address2','city','postalCode','country'])if(initial[field])row[field]=initial[field];
+    if(initial.isDemo)row.isDemo=true;
+    if(initial.registered)row.registered=true;
+    return row;
+  };
+  for(const customer of db.customers||[])rowFor(customer.email,{id:customer.id,name:customer.name,createdAt:customer.createdAt,registered:true});
+  for(const order of db.orders||[]){
+    const contact=order.customer||{};
+    const row=rowFor(contact.email,{name:contact.name,phone:contact.phone,address1:contact.address1,address2:contact.address2,city:contact.city,postalCode:contact.postalCode,country:contact.country,isDemo:!!order.isDemo});
+    if(!row)continue;
+    if(order.isDemo)row.isDemo=true;
+    const paid=order.paymentMode==='stripe'&&['paid','processing','fulfilled'].includes(order.status);
+    if(order.isDemo||order.paymentMode==='preview'){row.previewOrders+=1;continue;}
+    row.orderCount+=1;
+    if(paid){const currency=order.currency||'GBP',amount=Number(order.totalCents)||0;row.paidOrders+=1;row.spentCents+=amount;row.spentByCurrency[currency]=(row.spentByCurrency[currency]||0)+amount;row.currency=currency;}
+    if(!row.lastOrderAt||Date.parse(order.createdAt)>Date.parse(row.lastOrderAt))row.lastOrderAt=order.createdAt;
+  }
+  return [...customers.values()].sort((a,b)=>Number(a.isDemo)-Number(b.isDemo)||b.spentCents-a.spentCents||a.name.localeCompare(b.name));
+}
 function customerCookie(token,maxAge=2592000) { const secure=APP_URL.startsWith('https://')?' Secure;':'';return `bireqdar_customer_session=${encodeURIComponent(token)}; HttpOnly; SameSite=Lax; Path=/; Max-Age=${maxAge};${secure}`; }
 function adminCookie(token,maxAge=43200) { const secure=APP_URL.startsWith('https://')?' Secure;':'';return `bireqdar_session=${encodeURIComponent(token)}; HttpOnly; SameSite=Strict; Path=/; Max-Age=${maxAge};${secure}`; }
 function issueCustomerSession(customer) { const token=crypto.randomBytes(32).toString('hex');db.customerSessions[tokenHash(token)]={customerId:customer.id,expiresAt:Date.now()+30*24*60*60*1000};return token; }
@@ -476,7 +511,7 @@ async function handleApi(req,res,url) {
     if (req.method==='GET'&&route==='/api/admin/me') { if(!requireAdmin(req,res))return;return send(res,200,{username:db.admin.username}); }
     if (!requireAdmin(req,res)) return;
     if (req.method==='DELETE'&&route==='/api/admin/demo-data') { const ordersBefore=db.orders.length,reservationsBefore=db.reservations.length;db.orders=db.orders.filter(item=>!item.isDemo);db.reservations=db.reservations.filter(item=>!item.isDemo);await saveDb();return send(res,200,{ok:true,removedOrders:ordersBefore-db.orders.length,removedEnquiries:reservationsBefore-db.reservations.length}); }
-    if (req.method==='GET'&&route==='/api/admin/data') return send(res,200,{products:db.products,collections:db.collections,orders:db.orders,reservations:db.reservations,settings:db.settings,customerCount:db.customers.length,username:db.admin.username});
+    if (req.method==='GET'&&route==='/api/admin/data') return send(res,200,{products:db.products,collections:db.collections,orders:db.orders,reservations:db.reservations,customers:adminCustomerRows(),settings:db.settings,customerCount:db.customers.length,username:db.admin.username});
     if (req.method==='PUT'&&route==='/api/admin/settings') { const b=await readJson(req);const cur=String(b.currency||'').toUpperCase();if(!allowedCurrencies.has(cur))return send(res,400,{error:'Choose GBP, EUR or USD.'});const ship=b.shippingCents===''||b.shippingCents===null?null:Number(b.shippingCents);if(ship!==null&&(!Number.isInteger(ship)||ship<0||ship>10000000))return send(res,400,{error:'Enter a valid delivery fee, or leave it blank until decided.'});db.settings.currency=cur;for (const p of db.products) p.currency=cur;db.settings.shippingCents=ship;db.settings.automaticTaxEnabled=!!b.automaticTaxEnabled;db.settings.vatRegistered=!!b.vatRegistered;await saveDb();return send(res,200,{ok:true}); }
     if (req.method==='POST'&&route==='/api/admin/upload') { const b=await readJson(req);const image=await persistImage(b.data);return send(res,201,{image}); }
     if (req.method==='POST'&&route==='/api/admin/products') { const b=await readJson(req);const p=productInput(b);db.products.unshift(p);await saveDb();return send(res,201,{product:p}); }
