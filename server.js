@@ -274,14 +274,18 @@ function adminCustomerRows() {
   for(const customer of db.customers||[])rowFor(customer.email,{id:customer.id,name:customer.name,createdAt:customer.createdAt,registered:true});
   for(const order of db.orders||[]){
     const contact=order.customer||{};
-    const row=rowFor(contact.email,{name:contact.name,phone:contact.phone,address1:contact.address1,address2:contact.address2,city:contact.city,postalCode:contact.postalCode,country:contact.country,isDemo:!!order.isDemo});
+    const row=rowFor(contact.email,{name:contact.name,isDemo:!!order.isDemo});
     if(!row)continue;
     if(order.isDemo)row.isDemo=true;
+    const orderTime=Date.parse(order.createdAt);
+    if(Number.isFinite(orderTime)&&(!row.lastOrderAt||orderTime>Date.parse(row.lastOrderAt))){
+      for(const field of ['name','phone','address1','address2','city','postalCode','country'])if(contact[field])row[field]=contact[field];
+      row.lastOrderAt=order.createdAt;
+    }
     const paid=order.paymentMode==='stripe'&&['paid','processing','fulfilled'].includes(order.status);
     if(order.isDemo||order.paymentMode==='preview'){row.previewOrders+=1;continue;}
     row.orderCount+=1;
     if(paid){const currency=order.currency||'GBP',amount=Number(order.totalCents)||0;row.paidOrders+=1;row.spentCents+=amount;row.spentByCurrency[currency]=(row.spentByCurrency[currency]||0)+amount;row.currency=currency;}
-    if(!row.lastOrderAt||Date.parse(order.createdAt)>Date.parse(row.lastOrderAt))row.lastOrderAt=order.createdAt;
   }
   return [...customers.values()].sort((a,b)=>Number(a.isDemo)-Number(b.isDemo)||b.spentCents-a.spentCents||a.name.localeCompare(b.name));
 }
