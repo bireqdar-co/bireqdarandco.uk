@@ -27,6 +27,15 @@ let setupKeyLogged = false;
 function stripeKeyMode(key = process.env.STRIPE_SECRET_KEY) {
   return String(key || '').match(/^(?:sk|rk)_(test|live)_/)?.[1] || '';
 }
+function isUnitedKingdom(value) {
+  return /(^|[^a-z])(uk|gb)(?=$|[^a-z])|united kingdom|great britain|britain|england|scotland|wales|northern ireland/i.test(String(value || '').trim());
+}
+function normalizeUKPostcode(value) {
+  const compact = String(value || '').toUpperCase().replace(/\s+/g, '');
+  if (compact === 'GIR0AA') return 'GIR 0AA';
+  if (!/^[A-Z]{1,2}\d[A-Z\d]?\d[A-Z]{2}$/.test(compact)) return '';
+  return `${compact.slice(0, -3)} ${compact.slice(-3)}`;
+}
 if(!Number.isInteger(PORT)||PORT<1||PORT>65535)throw new Error('PORT must be an integer between 1 and 65535.');
 if(process.env.NODE_ENV==='production'&&!process.env.DATABASE_URL)throw new Error('DATABASE_URL is required when NODE_ENV=production.');
 if(process.env.NODE_ENV==='production'&&!process.env.ADMIN_SETUP_KEY)throw new Error('ADMIN_SETUP_KEY is required when NODE_ENV=production.');
@@ -469,6 +478,13 @@ async function persistImage(input) {
 function isLiveCheckoutReady() {
   return stripeKeyMode() === 'live' && process.env.LIVE_CHECKOUT_ENABLED === 'true' && !!postgresStore && APP_URL.startsWith('https://') && !!process.env.STRIPE_WEBHOOK_SECRET && Number.isInteger(db.settings.shippingCents) && (!db.settings.vatRegistered || db.settings.automaticTaxEnabled) && !db.products.some(p => p.published && p.isDemo);
 }
+// Production can use Stripe test mode for an end-to-end checkout rehearsal. It never enables live charges.
+function isTestCheckoutReady() {
+  return stripeKeyMode() === 'test' && !!postgresStore && APP_URL.startsWith('https://') && !!process.env.STRIPE_WEBHOOK_SECRET;
+}
+function isCheckoutReady() {
+  return stripeKeyMode() === 'live' ? isLiveCheckoutReady() : isTestCheckoutReady();
+}
 function assertLiveCheckoutReady(items) {
   if (stripeKeyMode() !== 'live') return;
   if (process.env.LIVE_CHECKOUT_ENABLED !== 'true') throw Object.assign(new Error('Live payments are disabled until the store owner completes launch checks.'),{status:503});
@@ -508,7 +524,7 @@ function computeOrder(lines, country='') {
   // Stripe Checkout sessions expire after 24 hours. Treat still-pending paid-flow orders as
   // temporary stock holds, so parallel checkouts cannot sell the same last item twice.
   for(const order of db.orders){if(order.status!=='payment_pending'||order.paymentMode!=='stripe'||now-Date.parse(order.createdAt)>=24*60*60*1000)continue;for(const item of order.items||[])reservedByProduct.set(item.id,(reservedByProduct.get(item.id)||0)+Number(item.quantity||0));}
-  const countryText=String(country||'').trim(); const ukCountry=/(^|[^a-z])(uk|gb)(?=$|[^a-z])|united kingdom|great britain|britain|england|scotland|wales|northern ireland/i.test(countryText); const uk=db.settings.vatRegistered&&ukCountry;
+  const uk=db.settings.vatRegistered&&isUnitedKingdom(country);
   for (const line of lines) {
     if(!line||typeof line!=='object'||Array.isArray(line))throw Object.assign(new Error('Each bag item must be a valid product line.'),{status:400});
     const p=db.products.find(x=>x.id===line.id && x.published);
@@ -532,9 +548,9 @@ async function handleApi(req,res,url) {
   if (req.method==='GET' && route==='/api/catalog') {
     const liveKey=stripeKeyMode()==='live';
     const production=process.env.NODE_ENV==='production';
-    const checkoutAvailable=production?isLiveCheckoutReady():!!process.env.STRIPE_SECRET_KEY&&(liveKey?isLiveCheckoutReady():true);
+    const checkoutAvailable=production?(liveKey?isLiveCheckoutReady():isTestCheckoutReady()):!!process.env.STRIPE_SECRET_KEY&&(liveKey?isLiveCheckoutReady():true);
     const products=db.products.filter(p=>p.published&&(process.env.NODE_ENV!=='production'||!p.isDemo));
-    return send(res,200,{products:products.map(publicProduct),collections:db.collections.filter(c=>c.active).map(({id,name,slug,description})=>({id,name,slug,description})),currency:db.settings.currency,storeName:db.settings.storeName,shippingCents:db.settings.shippingCents,paymentConfigured:!!process.env.STRIPE_SECRET_KEY,checkoutAvailable,vatRegistered:!!db.settings.vatRegistered});
+    return send(res,200,{products:products.map(publicProduct),collections:db.collections.filter(c=>c.active).map(({id,name,slug,description})=>({id,name,slug,description})),currency:db.settings.currency,storeName:db.settings.storeName,shippingCents:db.settings.shippingCents,paymentConfigured:!!process.env.STRIPE_SECRET_KEY,checkoutMode:stripeKeyMode()||'unconfigured',checkoutAvailable,vatRegistered:!!db.settings.vatRegistered});
   }
   if (req.method==='GET' && route==='/api/product') {
     const p=db.products.find(x=>x.slug===url.searchParams.get('slug')&&x.published&&(process.env.NODE_ENV!=='production'||!x.isDemo)); return p?send(res,200,{product:publicProduct(p),collection:db.collections.find(c=>c.id===p.collectionId)?.name||''}):send(res,404,{error:'This piece is not available.'});
@@ -606,9 +622,14 @@ async function handleApi(req,res,url) {
     return send(res,404,{error:'Account route not found.'});
   }
   if (req.method==='POST' && route==='/api/checkout') {
-    if(process.env.NODE_ENV==='production'&&!isLiveCheckoutReady())return send(res,503,{error:'Secure checkout is currently unavailable. Please contact our team to enquire about this piece.'});
+    if(process.env.NODE_ENV==='production'&&!isCheckoutReady())return send(res,503,{error:'Secure checkout is not configured yet. Please contact our team to enquire about this piece.'});
     const b=await readJson(req); const customer={name:clean(b.name,100),email:clean(b.email,254),phone:clean(b.phone,40),address1:clean(b.address1,160),address2:clean(b.address2,160),city:clean(b.city,100),postalCode:clean(b.postalCode,30),country:clean(b.country,80)};
     if (!customer.name||!validEmail(customer.email)||!customer.address1||!customer.city||!customer.postalCode||!customer.country) return send(res,400,{error:'Complete your name, email and delivery address.'});
+    if(isUnitedKingdom(customer.country)){
+      const formattedPostcode=normalizeUKPostcode(customer.postalCode);
+      if(!formattedPostcode)return send(res,400,{error:'Enter a valid UK postcode, such as SW1A 1AA.'});
+      customer.postalCode=formattedPostcode;
+    }
     if (b.acceptTerms!==true) return send(res,400,{error:'Please confirm your delivery details and privacy notice.'});
     const account=customerSession(req)?.customer||null;if(account){customer.name=account.name;customer.email=account.email;}
     const requestId= /^[a-f0-9-]{36}$/i.test(String(b.requestId||'')) ? String(b.requestId).toLowerCase() : id();
