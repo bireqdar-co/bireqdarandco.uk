@@ -612,7 +612,7 @@ async function handleApi(req,res,url) {
   if (route.startsWith('/api/account')) {
     if(req.method==='GET'&&route==='/api/account'){
       const session=customerSession(req);if(!session?.customer)return send(res,200,{authenticated:false});
-      const orders=db.orders.filter(o=>o.customerId===session.customer.id).slice(0,30).map(o=>({reference:o.reference,createdAt:o.createdAt,status:o.status,totalCents:o.totalCents,currency:o.currency,items:o.items.map(i=>({name:i.name,quantity:i.quantity}))}));
+      const orders=db.orders.filter(o=>o.customerId===session.customer.id).slice(0,30).map(o=>({reference:o.reference,createdAt:o.createdAt,status:o.status,statusHistory:Array.isArray(o.statusHistory)?o.statusHistory:[],totalCents:o.totalCents,currency:o.currency,items:o.items.map(i=>({name:i.name,quantity:i.quantity}))}));
       return send(res,200,{authenticated:true,customer:publicCustomer(session.customer),orders});
     }
     if(req.method==='POST'&&route==='/api/account/register'){
@@ -685,7 +685,8 @@ async function handleApi(req,res,url) {
       return send(res,200,{ok:true,preview:true,reference:prior.reference,redirectUrl:`/order.html?ref=${encodeURIComponent(prior.reference)}&preview=1`});
     }
     const totals=computeOrder(b.items,customer.country); assertLiveCheckoutReady(totals.items); if(process.env.NODE_ENV==='production'&&totals.items.some(item=>item.isDemo))return send(res,409,{error:'This piece is not available to order online. Please enquire with our team.'}); const shippingCents=Number.isInteger(db.settings.shippingCents)?db.settings.shippingCents:0;
-    const order={id:id(),reference:`BC-${shortRef()}`,checkoutRequestId:requestId,createdAt:new Date().toISOString(),status:'payment_pending',paymentMode:process.env.STRIPE_SECRET_KEY&&!totals.items.some(item=>item.isDemo)?'stripe':'preview',customer,customerId:account?.id||null,items:totals.items,subtotalCents:totals.total,taxCents:totals.tax,shippingCents,totalCents:totals.total+shippingCents,currency:totals.currency};
+    const createdAt=new Date().toISOString();
+    const order={id:id(),reference:`BC-${shortRef()}`,checkoutRequestId:requestId,createdAt,status:'payment_pending',statusHistory:[{status:'payment_pending',at:createdAt}],paymentMode:process.env.STRIPE_SECRET_KEY&&!totals.items.some(item=>item.isDemo)?'stripe':'preview',customer,customerId:account?.id||null,items:totals.items,subtotalCents:totals.total,taxCents:totals.tax,shippingCents,totalCents:totals.total+shippingCents,currency:totals.currency};
     db.orders.unshift(order); await saveDb();
     try {
       const session=await stripeCheckout(order,req);
@@ -697,7 +698,7 @@ async function handleApi(req,res,url) {
   if (req.method==='GET' && route==='/api/order') {
     const ref=clean(url.searchParams.get('ref'),30).toUpperCase(); const order=db.orders.find(x=>x.reference===ref);
     if(process.env.NODE_ENV==='production'&&order?.paymentMode!=='stripe')return send(res,404,{error:'Order not found. Check the order reference.'});
-    return order?send(res,200,{reference:order.reference,status:order.status,paymentMode:order.paymentMode,items:order.items,totalCents:order.totalCents,subtotalCents:order.subtotalCents,shippingCents:order.shippingCents,taxCents:order.taxCents,currency:order.currency,createdAt:order.createdAt}):send(res,404,{error:'Order not found. Check the order reference.'});
+    return order?send(res,200,{reference:order.reference,status:order.status,statusHistory:Array.isArray(order.statusHistory)?order.statusHistory:[],paymentMode:order.paymentMode,items:order.items,totalCents:order.totalCents,subtotalCents:order.subtotalCents,shippingCents:order.shippingCents,taxCents:order.taxCents,currency:order.currency,createdAt:order.createdAt}):send(res,404,{error:'Order not found. Check the order reference.'});
   }
   if (req.method==='POST' && route==='/api/stripe-webhook') {
     const raw=await readRaw(req); const secret=process.env.STRIPE_WEBHOOK_SECRET;
@@ -716,9 +717,10 @@ async function handleApi(req,res,url) {
       const session=event.data?.object; const order=db.orders.find(o=>o.stripeSessionId===session?.id);
       if (order && session.metadata?.orderId===order.id && session.client_reference_id===order.reference && session.payment_status==='paid') {
         if(!Number.isInteger(session.amount_total)||session.amount_total!==order.totalCents||String(session.currency||'').toUpperCase()!==order.currency){securityEvent(req,'stripe_payment_mismatch');return text(res,400,'Payment verification failed.');}
-        if(order.status!=='paid'){
-          order.status='paid'; order.paidAt=new Date().toISOString(); if (Number.isInteger(session.total_details?.amount_tax)) order.taxCents=session.total_details.amount_tax;
+        if(!order.paidAt){
+          order.paidAt=new Date().toISOString(); if (Number.isInteger(session.total_details?.amount_tax)) order.taxCents=session.total_details.amount_tax;
           for (const item of order.items) { const p=db.products.find(x=>x.id===item.id); if (p) p.stock=Math.max(0,p.stock-item.quantity); }
+          if(order.status==='payment_pending'){order.status='paid';order.statusHistory=Array.isArray(order.statusHistory)?order.statusHistory:[];order.statusHistory.push({status:'paid',at:order.paidAt});}
           await saveDb();securityEvent(req,'stripe_payment_confirmed');
         }
         if(!order.confirmationEmailSentAt&&order.customer?.email&&process.env.RESEND_API_KEY&&process.env.RESEND_FROM_EMAIL){
@@ -729,7 +731,7 @@ async function handleApi(req,res,url) {
       }
     } else if (event.type==='checkout.session.expired' || event.type==='checkout.session.async_payment_failed') {
       const session=event.data?.object; const order=db.orders.find(o=>o.stripeSessionId===session?.id);
-      if (order && session.metadata?.orderId===order.id && session.client_reference_id===order.reference && order.status==='payment_pending') { order.status='cancelled'; order.cancelledAt=new Date().toISOString(); await saveDb(); }
+      if (order && session.metadata?.orderId===order.id && session.client_reference_id===order.reference && order.status==='payment_pending') { order.status='cancelled'; order.cancelledAt=new Date().toISOString();order.statusHistory=Array.isArray(order.statusHistory)?order.statusHistory:[];order.statusHistory.push({status:'cancelled',at:order.cancelledAt}); await saveDb(); }
     }
     if(eventId){if(postgresStore)await postgresStore.rememberWebhookEvent(eventId);else{db.processedStripeEvents.push(eventId);if(db.processedStripeEvents.length>10000)db.processedStripeEvents=db.processedStripeEvents.slice(-5000);await saveDb();}}
     return text(res,200,'ok');
@@ -775,14 +777,21 @@ async function handleApi(req,res,url) {
     if(orderRoute&&req.method==='PUT'){
       const b=await readJson(req),o=db.orders.find(x=>x.id===orderRoute[1]);
       if(!o)return send(res,404,{error:'Order not found.'});
-      if(!['processing','shipped','fulfilled','cancelled'].includes(b.status))return send(res,400,{error:'Choose a valid order status.'});
-      if(o.paymentMode==='stripe'&&['shipped','fulfilled'].includes(b.status)&&!['paid','processing','shipped','fulfilled'].includes(o.status))return send(res,409,{error:'Only paid orders can be marked as shipped.'});
+      if(!['processing','shipped','delivered','fulfilled','cancelled'].includes(b.status))return send(res,400,{error:'Choose a valid order status.'});
+      if(o.paymentMode==='stripe'&&b.status==='processing'&&!['paid','processing'].includes(o.status))return send(res,409,{error:'Only confirmed paid orders can be prepared.'});
+      if(o.paymentMode==='stripe'&&b.status==='shipped'&&!['paid','processing','shipped'].includes(o.status))return send(res,409,{error:'Only confirmed paid orders can be marked as shipped.'});
+      if(o.paymentMode==='stripe'&&b.status==='delivered'&&!['shipped','delivered'].includes(o.status))return send(res,409,{error:'Mark the order as shipped before marking it delivered.'});
+      if(o.paymentMode==='stripe'&&b.status==='fulfilled'&&!['paid','processing','shipped','delivered','fulfilled'].includes(o.status))return send(res,409,{error:'Only confirmed paid orders can be fulfilled.'});
       if(o.paymentMode==='stripe'&&b.status==='shipped'&&!o.shippedEmailSentAt&&o.customer?.email&&process.env.RESEND_API_KEY&&process.env.RESEND_FROM_EMAIL){
         const email=await sendOrderShippedEmail(o);
         if(!email.sent)return send(res,502,{error:'The shipping email could not be sent. The order status was not changed; please try again.'});
         o.shippedEmailSentAt=new Date().toISOString();o.shippedEmailId=email.emailId||'';
       }
-      o.status=b.status;o.updatedAt=new Date().toISOString();await saveDb();return send(res,200,{order:o,emailConfigured:!!process.env.RESEND_API_KEY&&!!process.env.RESEND_FROM_EMAIL});
+      const changedAt=new Date().toISOString();
+      if(o.status!==b.status){o.statusHistory=Array.isArray(o.statusHistory)?o.statusHistory:[];o.statusHistory.push({status:b.status,at:changedAt});}
+      if(b.status==='shipped'&&!o.shippedAt)o.shippedAt=changedAt;
+      if(b.status==='delivered'&&!o.deliveredAt)o.deliveredAt=changedAt;
+      o.status=b.status;o.updatedAt=changedAt;await saveDb();return send(res,200,{order:o,emailConfigured:!!process.env.RESEND_API_KEY&&!!process.env.RESEND_FROM_EMAIL});
     }
     const reservationRoute=route.match(/^\/api\/admin\/reservations\/([^/]+)$/);
     if(reservationRoute&&req.method==='PUT'){const b=await readJson(req),r=db.reservations.find(x=>x.id===reservationRoute[1]);if(!r)return send(res,404,{error:'Enquiry not found.'});if(!['new','contacted','closed'].includes(b.status))return send(res,400,{error:'Choose a valid enquiry status.'});r.status=b.status;await saveDb();return send(res,200,{reservation:r});}
