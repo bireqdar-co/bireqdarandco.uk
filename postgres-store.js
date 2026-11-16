@@ -4,6 +4,7 @@ const fs = require('node:fs/promises');
 const path = require('node:path');
 const { Pool } = require('pg');
 
+// Convert PostgreSQL JSONB values and timestamps back into the store's runtime format.
 const json = value => value == null ? null : (typeof value === 'string' ? JSON.parse(value) : value);
 const dateValue = value => value ? new Date(value) : null;
 
@@ -27,6 +28,7 @@ class PostgresStore {
   }
 
   async load() {
+    // Load normalized tables and rebuild the shared store object expected by the API.
     const state = await this.pool.query('SELECT version, setup_key FROM app_state WHERE id = 1');
     if (!state.rowCount) return null;
     const [settings, owner, collections, products, customers, orders, items, reservations, sessions, customerSessions] = await Promise.all([
@@ -76,6 +78,7 @@ class PostgresStore {
   }
 
   async save(db) {
+    // Persist one complete snapshot in a transaction so readers see consistent state.
     const client = await this.pool.connect();
     try {
       await client.query('BEGIN');

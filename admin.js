@@ -1,3 +1,4 @@
+// Owner Studio: session handling, catalogue edits, customer/order views and analytics.
 (() => {
  const authPanel=document.querySelector('#auth-panel'),authContent=document.querySelector('#auth-content'),app=document.querySelector('#admin-app'),notice=document.querySelector('#admin-notice');let data=null;
  const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));

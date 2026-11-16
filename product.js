@@ -1,3 +1,4 @@
+// Fetch and render one public product using its stable catalogue slug.
 (() => {
  const root=document.querySelector('#product-detail'),slug=new URLSearchParams(location.search).get('slug');
  const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));

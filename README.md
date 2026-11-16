@@ -2,6 +2,8 @@
 
 A Node.js storefront and owner studio for jewellery, gemstones (including natural and lab-grown diamonds), bullion, bespoke commissions and watches. Product listings, customer accounts, checkout orders, line-item snapshots, reservations, collections, settings and owner/customer sessions can be stored in PostgreSQL. Product image files remain on the host's persistent disk.
 
+For a quick map of the pages, scripts and request flow, see [`CODE_GUIDE.md`](CODE_GUIDE.md).
+
 ## Local development
 
 Use Node.js 22 or newer. Install dependencies and start the app:

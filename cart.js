@@ -1,3 +1,4 @@
+// Cart interactions use a local bag; the server verifies the current catalogue at checkout.
 (() => {
  const root=document.querySelector('#cart-content'),key='bireqdar-bag',money=(c,cur)=>new Intl.NumberFormat(undefined,{style:'currency',currency:cur}).format(c/100),esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
  const lineKey=x=>`${x.id}|${x.finish||''}`;let bag=[];try{bag=JSON.parse(localStorage.getItem(key)||'[]')}catch{}

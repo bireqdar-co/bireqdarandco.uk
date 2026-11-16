@@ -1,3 +1,4 @@
+// Account sign-in, registration, password reset and session-aware account details.
 (() => {
  const root=document.querySelector('#account-content'),params=new URLSearchParams(location.search),resetToken=params.get('reset');let mode='login';if(resetToken)history.replaceState({},'',location.pathname);
  const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));

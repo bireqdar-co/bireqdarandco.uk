@@ -1,3 +1,4 @@
+// Present delivery details and a server-priced summary; payment is created by the API.
 (() => {
  const bagKey='bireqdar-bag',form=document.querySelector('#checkout-form'),err=document.querySelector('#checkout-error'),summary=document.querySelector('#checkout-summary'),mode=document.querySelector('#checkout-mode'),button=form.querySelector('button[type=submit]');let catalog,items=[];
  const money=(c,cur='GBP')=>new Intl.NumberFormat(undefined,{style:'currency',currency:cur}).format(c/100),esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));

@@ -9,6 +9,7 @@ const envFile = path.join(__dirname, '.env');
 try { for (const line of fsSync.readFileSync(envFile, 'utf8').split(/\r?\n/)) { const m=line.match(/^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)\s*$/); if (m && process.env[m[1]]===undefined) process.env[m[1]]=m[2].replace(/^['"]|['"]$/g,''); } } catch {}
 const { URL } = require('node:url');
 
+// Runtime configuration, storage paths and deployment safety checks.
 const ROOT = __dirname;
 const DATA_DIR = path.resolve(process.env.DATA_DIR || path.join(ROOT, 'data'));
 const UPLOAD_DIR = path.resolve(process.env.UPLOAD_DIR || path.join(ROOT, 'uploads'));
@@ -41,6 +42,8 @@ const safeEqual = (a, b) => {
   const bb = Buffer.from(String(b || ''));
   return aa.length === bb.length && crypto.timingSafeEqual(aa, bb);
 };
+
+// Password hashing, legacy hash upgrade and optional transactional email delivery.
 async function hashPassword(password) {
   return argon2.hash(password,{type:argon2.argon2id,memoryCost:19456,timeCost:2,parallelism:1,hashLength:32});
 }
@@ -68,6 +71,7 @@ async function sendPasswordResetEmail(to,resetUrl) {
   } catch { console.error(JSON.stringify({event:'password_reset_email_failed',reason:'provider_unavailable'}));return false; }
 }
 
+// Initial collections/products used only when the local store is first created.
 function seed() {
   const collections = [
     { id: 'col-gold', name: 'Gold', slug: 'gold', description: 'Gold jewellery', active: true },
@@ -134,6 +138,7 @@ function seed() {
 
 let db;
 let writeQueue = Promise.resolve();
+// Load persisted state, then apply ordered migrations before serving requests.
 async function loadDb() {
   await fs.mkdir(DATA_DIR, { recursive: true });
   await fs.mkdir(UPLOAD_DIR, { recursive: true });
@@ -265,6 +270,7 @@ function saveDb() {
   });
   return writeQueue;
 }
+// Consistent JSON response helpers and request parsing/validation.
 function send(res, status, payload, extra={}) {
   res.writeHead(status, { 'Content-Type':'application/json; charset=utf-8', 'Cache-Control':'no-store', ...extra });
   res.end(JSON.stringify(payload));
@@ -455,6 +461,7 @@ async function persistImage(input) {
   await fs.writeFile(path.join(UPLOAD_DIR,filename),image.buffer,{flag:'wx'});
   return `/uploads/${filename}`;
 }
+// Stripe and tax helpers calculate totals from trusted catalogue records.
 function isLiveCheckoutReady() {
   const key = process.env.STRIPE_SECRET_KEY || '';
   return key.startsWith('sk_live_') && process.env.LIVE_CHECKOUT_ENABLED === 'true' && !!postgresStore && APP_URL.startsWith('https://') && !!process.env.STRIPE_WEBHOOK_SECRET && Number.isInteger(db.settings.shippingCents) && (!db.settings.vatRegistered || db.settings.automaticTaxEnabled) && !db.products.some(p => p.published && p.isDemo);
@@ -698,6 +705,7 @@ async function handleApi(req,res,url) {
   }
   return send(res,404,{error:'Not found.'});
 }
+// Serve only files under the public project/upload roots; block private store files.
 function mime(file) {
   const ext=path.extname(file).toLowerCase();return ({'.html':'text/html; charset=utf-8','.css':'text/css; charset=utf-8','.js':'text/javascript; charset=utf-8','.json':'application/json; charset=utf-8','.png':'image/png','.jpg':'image/jpeg','.jpeg':'image/jpeg','.svg':'image/svg+xml','.webp':'image/webp'})[ext]||'application/octet-stream';
 }

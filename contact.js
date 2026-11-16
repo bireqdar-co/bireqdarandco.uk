@@ -1,3 +1,4 @@
+// Contact form submission and enquiry status feedback.
 (() => {
   const reference = new URLSearchParams(location.search).get('reference');
   if (reference) document.querySelector('#reference').value = reference;
