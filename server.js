@@ -5,6 +5,7 @@ const crypto = require('node:crypto');
 const fsSync = require('node:fs');
 const net = require('node:net');
 const argon2 = require('argon2');
+const { OAuth2Client } = require('google-auth-library');
 const envFile = path.join(__dirname, '.env');
 try { for (const line of fsSync.readFileSync(envFile, 'utf8').split(/\r?\n/)) { const m=line.match(/^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)\s*$/); if (m && process.env[m[1]]===undefined) process.env[m[1]]=m[2].replace(/^['"]|['"]$/g,''); } } catch {}
 const { URL } = require('node:url');
@@ -20,6 +21,8 @@ const PORT = Number(process.env.PORT || 3000);
 // Render routes public traffic to 0.0.0.0; keep this as the default if HOST isn't configured.
 const HOST = process.env.HOST || '0.0.0.0';
 const APP_URL = process.env.APP_URL || process.env.RENDER_EXTERNAL_URL || '';
+const GOOGLE_CLIENT_ID = String(process.env.GOOGLE_CLIENT_ID || '').trim();
+const googleAuthClient = GOOGLE_CLIENT_ID ? new OAuth2Client(GOOGLE_CLIENT_ID) : null;
 const MAX_BODY = 7 * 1024 * 1024;
 const allowedCurrencies = new Set(['GBP', 'EUR', 'USD']);
 let setupKeyLogged = false;
@@ -362,7 +365,7 @@ function enforceRateLimit(req,res,key,limit,windowMs,route=req.url) {
 function ratePolicy(method,route) {
   if(method==='POST'&&route==='/api/admin/setup')return {bucket:'owner-setup',limit:3,window:60*60*1000};
   if(method==='POST'&&route==='/api/admin/login')return {bucket:'owner-login',limit:8,window:15*60*1000};
-  if(method==='POST'&&['/api/account/login','/api/account/register'].includes(route))return {bucket:'customer-auth',limit:8,window:15*60*1000};
+  if(method==='POST'&&['/api/account/login','/api/account/register','/api/account/google'].includes(route))return {bucket:'customer-auth',limit:8,window:15*60*1000};
   if(method==='POST'&&route==='/api/account/address')return {bucket:'account-address',limit:20,window:60*60*1000};
   if(method==='POST'&&route==='/api/account/wishlist')return {bucket:'account-wishlist',limit:60,window:60*60*1000};
   if(method==='POST'&&route==='/api/account/forgot-password')return {bucket:'password-reset-request',limit:4,window:60*60*1000};
@@ -384,7 +387,7 @@ function applySecurityHeaders(req,res) {
   res.setHeader('Referrer-Policy','strict-origin-when-cross-origin');
   res.setHeader('Permissions-Policy','camera=(), geolocation=(), microphone=()');
   res.setHeader('Cross-Origin-Resource-Policy','same-origin');
-  res.setHeader('Content-Security-Policy',"default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; font-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self' https://checkout.stripe.com");
+  res.setHeader('Content-Security-Policy',"default-src 'self'; script-src 'self' https://accounts.google.com/gsi/client; style-src 'self' 'unsafe-inline' https://accounts.google.com/gsi/style; img-src 'self' https: data: blob:; font-src 'self' data:; connect-src 'self' https://accounts.google.com/gsi/; frame-src https://accounts.google.com/gsi/; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self' https://checkout.stripe.com");
   const forwardedProto=String(req.headers['x-forwarded-proto']||'').split(',')[0].trim().toLowerCase();
   if(forwardedProto==='https'||(!process.env.RENDER_EXTERNAL_URL&&req.socket.encrypted))res.setHeader('Strict-Transport-Security','max-age=31536000');
 }
@@ -612,6 +615,7 @@ async function handleApi(req,res,url) {
     db.reservations.unshift(reservation); await saveDb(); return send(res,201,{ok:true,reference:reservation.reference,message:'Your enquiry has been recorded.'});
   }
   if (route.startsWith('/api/account')) {
+    if(req.method==='GET'&&route==='/api/account/google-config')return send(res,200,{clientId:GOOGLE_CLIENT_ID});
     if(req.method==='GET'&&route==='/api/account'){
       const session=customerSession(req);if(!session?.customer)return send(res,200,{authenticated:false});
       const orders=db.orders.filter(o=>o.customerId===session.customer.id).slice(0,30).map(o=>({reference:o.reference,createdAt:o.createdAt,status:o.status,statusHistory:Array.isArray(o.statusHistory)?o.statusHistory:[],totalCents:o.totalCents,currency:o.currency,items:o.items.map(i=>({name:i.name,quantity:i.quantity}))}));
@@ -649,6 +653,28 @@ async function handleApi(req,res,url) {
       const customer=db.customers.find(c=>c.email===email),verified=customer?await verifyPassword(customer,password):{valid:false};if(!verified.valid){securityEvent(req,'customer_login_failed');return send(res,401,{error:'Email or password is incorrect.'});}
       if(verified.rehash){customer.passwordHash=verified.rehash;delete customer.salt;delete customer.hash;}
       const token=issueCustomerSession(customer);await saveDb();securityEvent(req,'customer_login_succeeded');return send(res,200,{authenticated:true,customer:publicCustomer(customer)},{'Set-Cookie':customerCookie(token)});
+    }
+    if(req.method==='POST'&&route==='/api/account/google'){
+      if(!googleAuthClient)return send(res,503,{error:'Google sign-in is not configured yet.'});
+      const b=await readJson(req),credential=String(b.credential||'');
+      if(credential.length<100||credential.length>10000)return send(res,400,{error:'Google could not verify this sign-in. Please try again.'});
+      let claims;
+      try {
+        const ticket=await googleAuthClient.verifyIdToken({idToken:credential,audience:GOOGLE_CLIENT_ID});
+        claims=ticket.getPayload();
+      } catch {
+        securityEvent(req,'customer_google_login_failed');return send(res,401,{error:'Google could not verify this sign-in. Please try again.'});
+      }
+      const email=String(claims?.email||'').trim().toLowerCase(),googleSub=String(claims?.sub||''),name=clean(claims?.name,100);
+      if(!claims?.email_verified||!validEmail(email)||!googleSub||!validCustomerName(name)){
+        securityEvent(req,'customer_google_login_failed');return send(res,401,{error:'Use a Google account with a verified email address.'});
+      }
+      let customer=db.customers.find(entry=>entry.email===email);
+      if(customer?.googleSub&&customer.googleSub!==googleSub)return send(res,409,{error:'This email is connected to a different Google account. Please contact us.'});
+      if(!customer){customer={id:id(),name,email,googleSub,createdAt:new Date().toISOString()};db.customers.push(customer);securityEvent(req,'customer_account_created',{provider:'google'});}
+      else {customer.googleSub=googleSub;if(!customer.name)customer.name=name;}
+      const token=issueCustomerSession(customer);await saveDb();securityEvent(req,'customer_login_succeeded',{provider:'google'});
+      return send(res,200,{authenticated:true,customer:publicCustomer(customer)},{'Set-Cookie':customerCookie(token)});
     }
     if(req.method==='POST'&&route==='/api/account/forgot-password'){
       const b=await readJson(req),email=clean(b.email,254).toLowerCase();

@@ -1,6 +1,6 @@
 // Account sign-in, registration, password reset and session-aware account details.
 (() => {
- const root=document.querySelector('#account-content'),params=new URLSearchParams(location.search),resetToken=params.get('reset');let mode='login';if(resetToken)history.replaceState({},'',location.pathname);
+ const root=document.querySelector('#account-content'),params=new URLSearchParams(location.search),resetToken=params.get('reset');let mode='login',googleScriptPromise;if(resetToken)history.replaceState({},'',location.pathname);
  const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
  const money=(c,cur='GBP')=>new Intl.NumberFormat(undefined,{style:'currency',currency:cur}).format(c/100);
  const orderStatusLabel=status=>({payment_pending:'Awaiting payment',paid:'Confirmed',processing:'Preparing',shipped:'Shipped',delivered:'Delivered',fulfilled:'Completed',cancelled:'Cancelled'})[status]||String(status||'Being updated').replaceAll('_',' ');
@@ -10,10 +10,26 @@
  function renderAccess(){
   setTitle(mode==='register'?'Begin <em>your account.</em>':'Welcome <em>back.</em>',mode==='register'?'Create your client account to keep your orders close at hand.':'Sign in to review your orders and your client details.');
   const sideSwitch=document.querySelector('.account-side-switch');if(sideSwitch){sideSwitch.hidden=false;sideSwitch.querySelector('span').textContent=mode==='register'?'Already have an account?':'New to BIREQDAR&CO.?';const sideButton=sideSwitch.querySelector('button');sideButton.textContent=mode==='register'?'Sign in':'Create your account';sideButton.onclick=()=>{mode=mode==='register'?'login':'register';renderAccess()}}
-  root.innerHTML=`<div class="account-tabs" role="tablist" aria-label="Account access"><button type="button" role="tab" aria-selected="${mode==='login'}" data-mode="login">Sign in</button><button type="button" role="tab" aria-selected="${mode==='register'}" data-mode="register">Create account</button></div><form id="account-form" class="account-form"><label id="account-name-wrap" ${mode==='register'?'':'hidden'}>Full name<input name="name" autocomplete="name" maxlength="100" ${mode==='register'?'required':''}></label><label>Email address<input name="email" type="email" autocomplete="email" required maxlength="254"></label><label>Password<input name="password" type="password" autocomplete="${mode==='register'?'new-password':'current-password'}" required minlength="12" maxlength="200"><span>Use at least 12 characters.</span></label><p id="account-error" class="form-error" role="alert"></p><button class="button primary" type="submit">${mode==='register'?'Create account':'Sign in'}</button></form>${mode==='login'?'<button type="button" class="account-help account-reset-link" data-forgot>Forgot your password?</button>':''}`;
+  root.innerHTML=`<div class="account-tabs" role="tablist" aria-label="Account access"><button type="button" role="tab" aria-selected="${mode==='login'}" data-mode="login">Sign in</button><button type="button" role="tab" aria-selected="${mode==='register'}" data-mode="register">Create account</button></div><form id="account-form" class="account-form"><label id="account-name-wrap" ${mode==='register'?'':'hidden'}>Full name<input name="name" autocomplete="name" maxlength="100" ${mode==='register'?'required':''}></label><label>Email address<input name="email" type="email" autocomplete="email" required maxlength="254"></label><label>Password<input name="password" type="password" autocomplete="${mode==='register'?'new-password':'current-password'}" required minlength="12" maxlength="200"><span>Use at least 12 characters.</span></label><p id="account-error" class="form-error" role="alert"></p><button class="button primary" type="submit">${mode==='register'?'Create account':'Sign in'}</button></form><div class="account-google-option" hidden><div class="account-divider"><span>or continue with</span></div><div class="google-signin-button"></div><p id="google-error" class="form-error" role="alert"></p></div>${mode==='login'?'<button type="button" class="account-help account-reset-link" data-forgot>Forgot your password?</button>':''}`;
   root.querySelectorAll('[data-mode]').forEach(button=>button.addEventListener('click',()=>{mode=button.dataset.mode;renderAccess()}));
   root.querySelector('[data-forgot]')?.addEventListener('click',renderForgot);
   root.querySelector('#account-form').addEventListener('submit',async event=>{event.preventDefault();const form=event.currentTarget,button=form.querySelector('button[type=submit]'),error=root.querySelector('#account-error');button.disabled=true;error.textContent='';try{await api(`/api/account/${mode==='register'?'register':'login'}`,{method:'POST',body:JSON.stringify(Object.fromEntries(new FormData(form)))});await load()}catch(e){error.textContent=e.message;button.disabled=false}});
+  initGoogleSignIn();
+ }
+ async function initGoogleSignIn(){
+  const option=root.querySelector('.account-google-option');if(!option)return;
+  try{
+   const config=await api('/api/account/google-config');if(!config.clientId||!option.isConnected)return;
+   option.hidden=false;
+   googleScriptPromise??=new Promise((resolve,reject)=>{const script=document.createElement('script');script.src='https://accounts.google.com/gsi/client';script.async=true;script.defer=true;script.onload=resolve;script.onerror=reject;document.head.append(script)});
+   await googleScriptPromise;if(!option.isConnected||!window.google?.accounts?.id)return;
+   window.google.accounts.id.initialize({client_id:config.clientId,callback:async response=>{
+    const error=option.querySelector('#google-error');if(error)error.textContent='';
+    try{await api('/api/account/google',{method:'POST',body:JSON.stringify({credential:response.credential})});await load()}
+    catch(problem){if(error)error.textContent=problem.message}
+   }});
+   window.google.accounts.id.renderButton(option.querySelector('.google-signin-button'),{type:'standard',theme:'outline',size:'large',text:'continue_with',shape:'rectangular',width:Math.min(360,Math.max(220,option.clientWidth||300)),logo_alignment:'left'});
+  }catch{if(option.isConnected){option.hidden=false;option.querySelector('#google-error').textContent='Google sign-in is temporarily unavailable.'}}
  }
  function renderForgot(){
   setTitle('Reset <em>your password.</em>','Enter your account email and we will send a secure reset link if an account matches.');
