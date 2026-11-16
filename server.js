@@ -363,6 +363,8 @@ function ratePolicy(method,route) {
   if(method==='POST'&&route==='/api/admin/setup')return {bucket:'owner-setup',limit:3,window:60*60*1000};
   if(method==='POST'&&route==='/api/admin/login')return {bucket:'owner-login',limit:8,window:15*60*1000};
   if(method==='POST'&&['/api/account/login','/api/account/register'].includes(route))return {bucket:'customer-auth',limit:8,window:15*60*1000};
+  if(method==='POST'&&route==='/api/account/address')return {bucket:'account-address',limit:20,window:60*60*1000};
+  if(method==='POST'&&route==='/api/account/wishlist')return {bucket:'account-wishlist',limit:60,window:60*60*1000};
   if(method==='POST'&&route==='/api/account/forgot-password')return {bucket:'password-reset-request',limit:4,window:60*60*1000};
   if(method==='POST'&&route==='/api/account/reset-password')return {bucket:'password-reset-complete',limit:8,window:15*60*1000};
   if(method==='POST'&&route==='/api/reservations')return {bucket:'enquiries',limit:8,window:15*60*1000};
@@ -613,7 +615,25 @@ async function handleApi(req,res,url) {
     if(req.method==='GET'&&route==='/api/account'){
       const session=customerSession(req);if(!session?.customer)return send(res,200,{authenticated:false});
       const orders=db.orders.filter(o=>o.customerId===session.customer.id).slice(0,30).map(o=>({reference:o.reference,createdAt:o.createdAt,status:o.status,statusHistory:Array.isArray(o.statusHistory)?o.statusHistory:[],totalCents:o.totalCents,currency:o.currency,items:o.items.map(i=>({name:i.name,quantity:i.quantity}))}));
-      return send(res,200,{authenticated:true,customer:publicCustomer(session.customer),orders});
+      const savedIds=Array.isArray(session.customer.wishlist)?session.customer.wishlist:[];
+      const wishlist=savedIds.map(productId=>db.products.find(product=>product.id===productId)).filter(Boolean).map(publicProduct);
+      return send(res,200,{authenticated:true,customer:publicCustomer(session.customer),deliveryAddress:session.customer.deliveryAddress||null,orders,wishlist});
+    }
+    if(req.method==='POST'&&route==='/api/account/address'){
+      const session=customerSession(req);if(!session?.customer)return send(res,401,{error:'Sign in to save your delivery address.'});
+      const b=await readJson(req),address={phone:clean(b.phone,40).replace(/\s+/g,' '),address1:clean(b.address1,160).replace(/\s+/g,' '),address2:clean(b.address2,160).replace(/\s+/g,' '),city:clean(b.city,100).replace(/\s+/g,' '),postalCode:clean(b.postalCode,30).toUpperCase().replace(/\s+/g,' '),country:clean(b.country,80).replace(/\s+/g,' ')};
+      if(!validPhone(address.phone)||!validAddressLine(address.address1)||!validAddressLine(address.address2,{optional:true})||!validCity(address.city)||!validCountry(address.country))return send(res,400,{error:'Check your phone number and delivery address fields.'});
+      if(isUnitedKingdom(address.country)){const formatted=normalizeUKPostcode(address.postalCode);if(!formatted)return send(res,400,{error:'Enter a valid UK postcode, such as SW1A 1AA.'});address.postalCode=formatted;}
+      else if(!validPostalCode(address.postalCode))return send(res,400,{error:'Enter a valid delivery postcode or postal code.'});
+      session.customer.deliveryAddress=address;await saveDb();return send(res,200,{ok:true,deliveryAddress:address});
+    }
+    if(req.method==='POST'&&route==='/api/account/wishlist'){
+      const session=customerSession(req);if(!session?.customer)return send(res,401,{error:'Sign in to save favourites to your wishlist.'});
+      const b=await readJson(req),productId=clean(b.productId,100),product=db.products.find(item=>item.id===productId);
+      if(!product)return send(res,404,{error:'This piece is no longer available.'});
+      const wishlist=Array.isArray(session.customer.wishlist)?session.customer.wishlist:[];
+      session.customer.wishlist=b.action==='remove'?wishlist.filter(id=>id!==productId):[...new Set([...wishlist,productId])].slice(0,100);
+      await saveDb();return send(res,200,{ok:true,wishlist:session.customer.wishlist});
     }
     if(req.method==='POST'&&route==='/api/account/register'){
       const b=await readJson(req),name=clean(b.name,100),email=clean(b.email,254).toLowerCase(),password=String(b.password||'');
@@ -660,6 +680,8 @@ async function handleApi(req,res,url) {
     return send(res,404,{error:'Account route not found.'});
   }
   if (req.method==='POST' && route==='/api/checkout') {
+    const account=customerSession(req)?.customer||null;
+    if(!account)return send(res,401,{error:'Sign in or create an account before placing your order.'});
     if(process.env.NODE_ENV==='production'&&!isCheckoutReady())return send(res,503,{error:'Secure checkout is not configured yet. Please contact our team to enquire about this piece.'});
     const b=await readJson(req); const customer={name:clean(b.name,100).replace(/\s+/g,' '),email:clean(b.email,254),phone:clean(b.phone,40),address1:clean(b.address1,160).replace(/\s+/g,' '),address2:clean(b.address2,160).replace(/\s+/g,' '),city:clean(b.city,100).replace(/\s+/g,' '),postalCode:clean(b.postalCode,30).toUpperCase().replace(/\s+/g,' '),country:clean(b.country,80).replace(/\s+/g,' ')};
     if (!customer.name||!validEmail(customer.email)||!customer.address1||!customer.city||!customer.postalCode||!customer.country) return send(res,400,{error:'Complete your name, email and delivery address.'});
@@ -674,10 +696,11 @@ async function handleApi(req,res,url) {
       customer.postalCode=formattedPostcode;
     }else if(!validPostalCode(customer.postalCode))return send(res,400,{error:'Enter a valid delivery postcode or postal code.'});
     if (b.acceptTerms!==true) return send(res,400,{error:'Please confirm your delivery details and privacy notice.'});
-    const account=customerSession(req)?.customer||null;if(account){customer.name=account.name;customer.email=account.email;}
+    customer.email=account.email;
     const requestId= /^[a-f0-9-]{36}$/i.test(String(b.requestId||'')) ? String(b.requestId).toLowerCase() : id();
     const prior=db.orders.find(o=>o.checkoutRequestId===requestId);
     if(prior){
+      if(prior.customerId!==account.id)return send(res,409,{error:'This checkout session belongs to a different client account. Return to your bag and try again.'});
       if(prior.paymentMode==='stripe'){
         const session=await stripeCheckout(prior,req);
         if(session){prior.stripeSessionId=session.id;await saveDb();return send(res,200,{ok:true,redirectUrl:session.url,reference:prior.reference});}
@@ -687,6 +710,7 @@ async function handleApi(req,res,url) {
     const totals=computeOrder(b.items,customer.country); assertLiveCheckoutReady(totals.items); if(process.env.NODE_ENV==='production'&&totals.items.some(item=>item.isDemo))return send(res,409,{error:'This piece is not available to order online. Please enquire with our team.'}); const shippingCents=Number.isInteger(db.settings.shippingCents)?db.settings.shippingCents:0;
     const createdAt=new Date().toISOString();
     const order={id:id(),reference:`BC-${shortRef()}`,checkoutRequestId:requestId,createdAt,status:'payment_pending',statusHistory:[{status:'payment_pending',at:createdAt}],paymentMode:process.env.STRIPE_SECRET_KEY&&!totals.items.some(item=>item.isDemo)?'stripe':'preview',customer,customerId:account?.id||null,items:totals.items,subtotalCents:totals.total,taxCents:totals.tax,shippingCents,totalCents:totals.total+shippingCents,currency:totals.currency};
+    if(b.saveAddress===true)account.deliveryAddress={phone:customer.phone,address1:customer.address1,address2:customer.address2,city:customer.city,postalCode:customer.postalCode,country:customer.country};
     db.orders.unshift(order); await saveDb();
     try {
       const session=await stripeCheckout(order,req);
