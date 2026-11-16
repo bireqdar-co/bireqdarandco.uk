@@ -49,6 +49,10 @@
 .bag-link #cart-count{display:inline-grid;place-items:center;min-width:18px;height:18px;padding:0 4px;border-radius:50%;background:#c6a477;color:#14281d;font:10px Arial,sans-serif;letter-spacing:0;border:0}
 .mini-button{cursor:pointer;background:transparent;font-family:"Times New Roman",Times,serif}
 .checkout-form .field-hint{font-size:11px;color:#b6c1b4;text-transform:none;letter-spacing:0;line-height:1.4}
+.commerce-page .checkout-form .policy-consent{display:flex!important;flex-direction:row;align-items:flex-start;gap:12px;margin:22px 0;padding:15px 17px;border:1px solid rgba(198,164,119,.34);border-radius:14px;background:rgba(244,239,226,.055);color:#ded8c9;font:14px/1.55 "Times New Roman",Times,serif!important;letter-spacing:0!important;text-transform:none!important}
+.commerce-page .checkout-form .policy-consent input{flex:0 0 18px;width:18px;min-height:18px;margin:2px 0 0;accent-color:#c6a477}
+.commerce-page .checkout-form .policy-consent span{font-size:14px;color:#ded8c9;line-height:1.55}
+.commerce-page .checkout-form .policy-consent a{color:#e4c690;text-decoration:underline;text-underline-offset:3px}
 #filters{display:grid;gap:14px;flex:1;width:100%}
 .filter-group{display:grid;gap:7px}
 .filter-caption{font:8px Arial,sans-serif;letter-spacing:.15em;color:#8a7655;text-transform:uppercase}

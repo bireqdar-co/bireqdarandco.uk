@@ -83,6 +83,38 @@ async function sendPasswordResetEmail(to,resetUrl) {
     return true;
   } catch { console.error(JSON.stringify({event:'password_reset_email_failed',reason:'provider_unavailable'}));return false; }
 }
+function escapeHtml(value) {
+  return String(value ?? '').replace(/[&<>"']/g,character=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[character]));
+}
+function formatOrderAmount(cents,currency='GBP') {
+  return new Intl.NumberFormat('en-GB',{style:'currency',currency}).format((Number(cents)||0)/100);
+}
+async function sendCustomerEmail({to,subject,text,html,idempotencyKey,eventName}) {
+  if(!process.env.RESEND_API_KEY||!process.env.RESEND_FROM_EMAIL)return {sent:false,configured:false};
+  try {
+    const response=await fetch('https://api.resend.com/emails',{
+      method:'POST',headers:{Authorization:`Bearer ${process.env.RESEND_API_KEY}`,'Content-Type':'application/json','Idempotency-Key':idempotencyKey},
+      body:JSON.stringify({from:`BIREQDAR & CO. <${process.env.RESEND_FROM_EMAIL}>`,to:[to],subject,text,html}),
+      signal:AbortSignal.timeout(10000)
+    });
+    const payload=await response.json().catch(()=>({}));
+    if(!response.ok){console.error(JSON.stringify({event:`${eventName}_failed`,status:response.status}));return {sent:false,configured:true};}
+    return {sent:true,configured:true,emailId:clean(payload.id,120)};
+  } catch { console.error(JSON.stringify({event:`${eventName}_failed`,reason:'provider_unavailable'}));return {sent:false,configured:true}; }
+}
+async function sendOrderPlacedEmail(order) {
+  const items=(order.items||[]).map(item=>`${item.name} × ${item.quantity} — ${formatOrderAmount((Number(item.priceCents)||0)*(Number(item.quantity)||0),order.currency)}`);
+  const amount=formatOrderAmount(order.totalCents,order.currency),reference=String(order.reference||''),safeReference=escapeHtml(reference);
+  const text=`Thank you for your order with BIREQDAR & CO.\n\nYour payment has been received and your order is confirmed.\nOrder reference: ${reference}\n\n${items.join('\n')}\n\nTotal: ${amount}\n\nWe will email you again when your order has shipped.`;
+  const html=`<div style="max-width:600px;margin:auto;padding:32px;background:#062318;color:#ede8da;font:16px/1.6 Georgia,serif"><p style="color:#d4af78;letter-spacing:.18em">BIREQDAR &amp; CO.</p><h1 style="font-weight:400">Your order is <em style="color:#d4af78">confirmed.</em></h1><p>Thank you. We have received your payment and confirmed your order.</p><p><strong>Order reference:</strong> ${safeReference}</p><ul>${(order.items||[]).map(item=>`<li>${escapeHtml(item.name)} × ${Number(item.quantity)||0} — ${escapeHtml(formatOrderAmount((Number(item.priceCents)||0)*(Number(item.quantity)||0),order.currency))}</li>`).join('')}</ul><p><strong>Total: ${escapeHtml(amount)}</strong></p><p>We will email you again when your order has shipped.</p></div>`;
+  return sendCustomerEmail({to:order.customer.email,subject:`Order ${reference} confirmed — BIREQDAR & CO.`,text,html,idempotencyKey:`order-confirmed/${order.id}`,eventName:'order_confirmation_email'});
+}
+async function sendOrderShippedEmail(order) {
+  const reference=String(order.reference||''),safeReference=escapeHtml(reference);
+  const text=`Your BIREQDAR & CO. order ${reference} has shipped.\n\nWe are pleased to let you know your order is on its way. If tracking details are available, our team will share them with you separately.`;
+  const html=`<div style="max-width:600px;margin:auto;padding:32px;background:#062318;color:#ede8da;font:16px/1.6 Georgia,serif"><p style="color:#d4af78;letter-spacing:.18em">BIREQDAR &amp; CO.</p><h1 style="font-weight:400">Your order has <em style="color:#d4af78">shipped.</em></h1><p>We are pleased to let you know your order is on its way.</p><p><strong>Order reference:</strong> ${safeReference}</p><p>If tracking details are available, our team will share them with you separately.</p></div>`;
+  return sendCustomerEmail({to:order.customer.email,subject:`Order ${reference} has shipped — BIREQDAR & CO.`,text,html,idempotencyKey:`order-shipped/${order.id}`,eventName:'order_shipped_email'});
+}
 
 // Initial collections/products used only when the local store is first created.
 function seed() {
@@ -384,6 +416,12 @@ function parseImageDataUri(value,maxBytes) {
 }
 function clean(s, max=5000) { return String(s ?? '').trim().slice(0,max); }
 function validEmail(s) { return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s) && s.length <= 254; }
+function validCustomerName(value) { return /^[\p{L}\p{M} .,'’()-]{2,100}$/u.test(String(value||'').trim()); }
+function validAddressLine(value,{optional=false}={}) { const text=String(value||'').trim();return optional&&!text||/^[\p{L}\p{M}\p{N} .,'’#\/()&-]{4,160}$/u.test(text); }
+function validCity(value) { return /^[\p{L}\p{M} .,'’()-]{2,100}$/u.test(String(value||'').trim()); }
+function validPhone(value) { const phone=String(value||'').trim();if(!phone)return true;const digits=phone.replace(/\D/g,'');return /^[+()\d .-]{7,25}$/.test(phone)&&digits.length>=7&&digits.length<=15; }
+function validPostalCode(value) { const postal=String(value||'').trim();return /^[A-Z0-9][A-Z0-9 -]{1,18}[A-Z0-9]$/i.test(postal); }
+function validCountry(value) { return /^[\p{L}\p{M} .,'’()-]{2,80}$/u.test(String(value||'').trim()); }
 function publicProduct(p) {
   return { id:p.id, slug:p.slug, name:p.name, type:p.type, category:p.category||'', collectionId:p.collectionId, short:p.short, description:p.description, priceCents:p.priceCents, stock:p.stock, currency:p.currency || db.settings.currency, image:p.image, inquiryOnly:!!p.inquiryOnly, isDemo:!!p.isDemo, specifications:Array.isArray(p.specifications)?p.specifications:[], vatRate:Number.isFinite(Number(p.vatRate))?Number(p.vatRate):20, brand:p.brand||'', bullionType:p.bullionType||'', gemstoneType:p.gemstoneType||'' };
 }
@@ -623,13 +661,18 @@ async function handleApi(req,res,url) {
   }
   if (req.method==='POST' && route==='/api/checkout') {
     if(process.env.NODE_ENV==='production'&&!isCheckoutReady())return send(res,503,{error:'Secure checkout is not configured yet. Please contact our team to enquire about this piece.'});
-    const b=await readJson(req); const customer={name:clean(b.name,100),email:clean(b.email,254),phone:clean(b.phone,40),address1:clean(b.address1,160),address2:clean(b.address2,160),city:clean(b.city,100),postalCode:clean(b.postalCode,30),country:clean(b.country,80)};
+    const b=await readJson(req); const customer={name:clean(b.name,100).replace(/\s+/g,' '),email:clean(b.email,254),phone:clean(b.phone,40),address1:clean(b.address1,160).replace(/\s+/g,' '),address2:clean(b.address2,160).replace(/\s+/g,' '),city:clean(b.city,100).replace(/\s+/g,' '),postalCode:clean(b.postalCode,30).toUpperCase().replace(/\s+/g,' '),country:clean(b.country,80).replace(/\s+/g,' ')};
     if (!customer.name||!validEmail(customer.email)||!customer.address1||!customer.city||!customer.postalCode||!customer.country) return send(res,400,{error:'Complete your name, email and delivery address.'});
+    if(!validCustomerName(customer.name))return send(res,400,{error:'Enter a valid full name using letters and normal punctuation.'});
+    if(!validPhone(customer.phone))return send(res,400,{error:'Enter a valid phone number with 7 to 15 digits, or leave it blank.'});
+    if(!validAddressLine(customer.address1)||!validAddressLine(customer.address2,{optional:true}))return send(res,400,{error:'Check the format of your address lines.'});
+    if(!validCity(customer.city))return send(res,400,{error:'Enter a valid town or city.'});
+    if(!validCountry(customer.country))return send(res,400,{error:'Enter a valid country name.'});
     if(isUnitedKingdom(customer.country)){
       const formattedPostcode=normalizeUKPostcode(customer.postalCode);
       if(!formattedPostcode)return send(res,400,{error:'Enter a valid UK postcode, such as SW1A 1AA.'});
       customer.postalCode=formattedPostcode;
-    }
+    }else if(!validPostalCode(customer.postalCode))return send(res,400,{error:'Enter a valid delivery postcode or postal code.'});
     if (b.acceptTerms!==true) return send(res,400,{error:'Please confirm your delivery details and privacy notice.'});
     const account=customerSession(req)?.customer||null;if(account){customer.name=account.name;customer.email=account.email;}
     const requestId= /^[a-f0-9-]{36}$/i.test(String(b.requestId||'')) ? String(b.requestId).toLowerCase() : id();
@@ -671,11 +714,18 @@ async function handleApi(req,res,url) {
     if (eventId && !postgresStore && db.processedStripeEvents.includes(eventId)) return text(res,200,'ok');
     if (event.type==='checkout.session.completed' || event.type==='checkout.session.async_payment_succeeded') {
       const session=event.data?.object; const order=db.orders.find(o=>o.stripeSessionId===session?.id);
-      if (order && session.metadata?.orderId===order.id && session.client_reference_id===order.reference && order.status!=='paid' && session.payment_status==='paid') {
+      if (order && session.metadata?.orderId===order.id && session.client_reference_id===order.reference && session.payment_status==='paid') {
         if(!Number.isInteger(session.amount_total)||session.amount_total!==order.totalCents||String(session.currency||'').toUpperCase()!==order.currency){securityEvent(req,'stripe_payment_mismatch');return text(res,400,'Payment verification failed.');}
-        order.status='paid'; order.paidAt=new Date().toISOString(); if (Number.isInteger(session.total_details?.amount_tax)) order.taxCents=session.total_details.amount_tax;
-        for (const item of order.items) { const p=db.products.find(x=>x.id===item.id); if (p) p.stock=Math.max(0,p.stock-item.quantity); }
-        await saveDb();securityEvent(req,'stripe_payment_confirmed');
+        if(order.status!=='paid'){
+          order.status='paid'; order.paidAt=new Date().toISOString(); if (Number.isInteger(session.total_details?.amount_tax)) order.taxCents=session.total_details.amount_tax;
+          for (const item of order.items) { const p=db.products.find(x=>x.id===item.id); if (p) p.stock=Math.max(0,p.stock-item.quantity); }
+          await saveDb();securityEvent(req,'stripe_payment_confirmed');
+        }
+        if(!order.confirmationEmailSentAt&&order.customer?.email&&process.env.RESEND_API_KEY&&process.env.RESEND_FROM_EMAIL){
+          const email=await sendOrderPlacedEmail(order);
+          if(!email.sent)return text(res,500,'Order email delivery will be retried.');
+          order.confirmationEmailSentAt=new Date().toISOString();order.confirmationEmailId=email.emailId||'';await saveDb();
+        }
       }
     } else if (event.type==='checkout.session.expired' || event.type==='checkout.session.async_payment_failed') {
       const session=event.data?.object; const order=db.orders.find(o=>o.stripeSessionId===session?.id);
@@ -722,7 +772,18 @@ async function handleApi(req,res,url) {
     if (collectionRoute&&req.method==='PUT') { const b=await readJson(req),c=db.collections.find(x=>x.id===collectionRoute[1]);if(!c)return send(res,404,{error:'Collection not found.'});const name=clean(b.name,100);if(name.length<2)return send(res,400,{error:'Enter a collection name.'});c.name=name;c.description=clean(b.description,500);c.active=b.active!==false;await saveDb();return send(res,200,{collection:c}); }
     if (collectionRoute&&req.method==='DELETE') { const c=db.collections.find(x=>x.id===collectionRoute[1]);if(!c)return send(res,404,{error:'Collection not found.'});if(db.products.some(p=>p.collectionId===c.id))return send(res,409,{error:'Move or remove this collection’s products before deleting it.'});db.collections=db.collections.filter(x=>x.id!==c.id);await saveDb();return send(res,200,{ok:true}); }
     const orderRoute=route.match(/^\/api\/admin\/orders\/([^/]+)$/);
-    if (orderRoute&&req.method==='PUT') {const b=await readJson(req),o=db.orders.find(x=>x.id===orderRoute[1]);if(!o)return send(res,404,{error:'Order not found.'});if(!['processing','fulfilled','cancelled'].includes(b.status))return send(res,400,{error:'Choose a valid order status.'});if(o.paymentMode==='stripe'&&b.status==='fulfilled'&&o.status!=='paid'&&o.status!=='processing')return send(res,409,{error:'Only paid orders can be fulfilled.'});o.status=b.status;o.updatedAt=new Date().toISOString();await saveDb();return send(res,200,{order:o});}
+    if(orderRoute&&req.method==='PUT'){
+      const b=await readJson(req),o=db.orders.find(x=>x.id===orderRoute[1]);
+      if(!o)return send(res,404,{error:'Order not found.'});
+      if(!['processing','shipped','fulfilled','cancelled'].includes(b.status))return send(res,400,{error:'Choose a valid order status.'});
+      if(o.paymentMode==='stripe'&&['shipped','fulfilled'].includes(b.status)&&!['paid','processing','shipped','fulfilled'].includes(o.status))return send(res,409,{error:'Only paid orders can be marked as shipped.'});
+      if(o.paymentMode==='stripe'&&b.status==='shipped'&&!o.shippedEmailSentAt&&o.customer?.email&&process.env.RESEND_API_KEY&&process.env.RESEND_FROM_EMAIL){
+        const email=await sendOrderShippedEmail(o);
+        if(!email.sent)return send(res,502,{error:'The shipping email could not be sent. The order status was not changed; please try again.'});
+        o.shippedEmailSentAt=new Date().toISOString();o.shippedEmailId=email.emailId||'';
+      }
+      o.status=b.status;o.updatedAt=new Date().toISOString();await saveDb();return send(res,200,{order:o,emailConfigured:!!process.env.RESEND_API_KEY&&!!process.env.RESEND_FROM_EMAIL});
+    }
     const reservationRoute=route.match(/^\/api\/admin\/reservations\/([^/]+)$/);
     if(reservationRoute&&req.method==='PUT'){const b=await readJson(req),r=db.reservations.find(x=>x.id===reservationRoute[1]);if(!r)return send(res,404,{error:'Enquiry not found.'});if(!['new','contacted','closed'].includes(b.status))return send(res,400,{error:'Choose a valid enquiry status.'});r.status=b.status;await saveDb();return send(res,200,{reservation:r});}
     return send(res,404,{error:'Owner route not found.'});
