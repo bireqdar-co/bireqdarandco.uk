@@ -25,6 +25,7 @@ const GOOGLE_CLIENT_ID = String(process.env.GOOGLE_CLIENT_ID || '').trim();
 const googleAuthClient = GOOGLE_CLIENT_ID ? new OAuth2Client(GOOGLE_CLIENT_ID) : null;
 const MAX_BODY = 7 * 1024 * 1024;
 const allowedCurrencies = new Set(['GBP', 'EUR', 'USD']);
+const allowedCustomerTitles = new Set(['', 'Mr', 'Mrs', 'Miss', 'Ms', 'Mx', 'Dr', 'Prof', 'Other']);
 let setupKeyLogged = false;
 // Accept either a standard secret key or a restricted key; keep test/live checks centralized.
 function stripeKeyMode(key = process.env.STRIPE_SECRET_KEY) {
@@ -367,6 +368,7 @@ function ratePolicy(method,route) {
   if(method==='POST'&&route==='/api/admin/login')return {bucket:'owner-login',limit:8,window:15*60*1000};
   if(method==='POST'&&['/api/account/login','/api/account/register','/api/account/google'].includes(route))return {bucket:'customer-auth',limit:8,window:15*60*1000};
   if(method==='POST'&&route==='/api/account/address')return {bucket:'account-address',limit:20,window:60*60*1000};
+  if(method==='POST'&&route==='/api/account/profile')return {bucket:'account-profile',limit:20,window:60*60*1000};
   if(method==='POST'&&route==='/api/account/wishlist')return {bucket:'account-wishlist',limit:60,window:60*60*1000};
   if(method==='POST'&&route==='/api/account/forgot-password')return {bucket:'password-reset-request',limit:4,window:60*60*1000};
   if(method==='POST'&&route==='/api/account/reset-password')return {bucket:'password-reset-complete',limit:8,window:15*60*1000};
@@ -443,7 +445,7 @@ function customerSession(req) {
   if(!token||!session||session.expiresAt<Date.now()){if(token&&session){delete db.customerSessions[token];saveDb()}return null;}
   return {token,customer:db.customers.find(c=>c.id===session.customerId)||null};
 }
-function publicCustomer(customer) { return {id:customer.id,name:customer.name,email:customer.email}; }
+function publicCustomer(customer) { return {id:customer.id,title:customer.title||'',name:customer.name,email:customer.email}; }
 function adminCustomerRows() {
   const customers=new Map();
   const rowFor=(email,initial={})=>{
@@ -631,6 +633,13 @@ async function handleApi(req,res,url) {
       else if(!validPostalCode(address.postalCode))return send(res,400,{error:'Enter a valid delivery postcode or postal code.'});
       session.customer.deliveryAddress=address;await saveDb();return send(res,200,{ok:true,deliveryAddress:address});
     }
+    if(req.method==='POST'&&route==='/api/account/profile'){
+      const session=customerSession(req);if(!session?.customer)return send(res,401,{error:'Sign in to update your client details.'});
+      const b=await readJson(req),title=clean(b.title,30),name=clean(b.name,100).replace(/\s+/g,' ');
+      if(!allowedCustomerTitles.has(title))return send(res,400,{error:'Choose a title from the list, or leave it blank.'});
+      if(!validCustomerName(name))return send(res,400,{error:'Enter a valid full name using letters and normal punctuation.'});
+      session.customer.title=title;session.customer.name=name;await saveDb();return send(res,200,{ok:true,customer:publicCustomer(session.customer)});
+    }
     if(req.method==='POST'&&route==='/api/account/wishlist'){
       const session=customerSession(req);if(!session?.customer)return send(res,401,{error:'Sign in to save favourites to your wishlist.'});
       const b=await readJson(req),productId=clean(b.productId,100),product=db.products.find(item=>item.id===productId);
@@ -640,11 +649,12 @@ async function handleApi(req,res,url) {
       await saveDb();return send(res,200,{ok:true,wishlist:session.customer.wishlist});
     }
     if(req.method==='POST'&&route==='/api/account/register'){
-      const b=await readJson(req),name=clean(b.name,100),email=clean(b.email,254).toLowerCase(),password=String(b.password||'');
+      const b=await readJson(req),name=clean(b.name,100),title=clean(b.title,30),email=clean(b.email,254).toLowerCase(),password=String(b.password||'');
       if(!enforceRateLimit(req,res,`account-register:${email}`,5,15*60*1000,route))return;
+      if(!allowedCustomerTitles.has(title))return send(res,400,{error:'Choose a title from the list, or leave it blank.'});
       if(name.length<2||!validEmail(email)||password.length<12||password.length>200)return send(res,400,{error:'Enter your name, a valid email and a password of at least 12 characters.'});
       if(db.customers.some(c=>c.email===email))return send(res,409,{error:'An account with this email already exists. Please sign in.'});
-      const customer={id:id(),name,email,passwordHash:await hashPassword(password),createdAt:new Date().toISOString()};db.customers.push(customer);const token=issueCustomerSession(customer);await saveDb();securityEvent(req,'customer_account_created');return send(res,201,{authenticated:true,customer:publicCustomer(customer)},{'Set-Cookie':customerCookie(token)});
+      const customer={id:id(),title,name,email,passwordHash:await hashPassword(password),createdAt:new Date().toISOString()};db.customers.push(customer);const token=issueCustomerSession(customer);await saveDb();securityEvent(req,'customer_account_created');return send(res,201,{authenticated:true,customer:publicCustomer(customer)},{'Set-Cookie':customerCookie(token)});
     }
     if(req.method==='POST'&&route==='/api/account/login'){
       const b=await readJson(req),email=clean(b.email,254).toLowerCase(),password=String(b.password||'');
@@ -709,7 +719,7 @@ async function handleApi(req,res,url) {
     const account=customerSession(req)?.customer||null;
     if(!account)return send(res,401,{error:'Sign in or create an account before placing your order.'});
     if(process.env.NODE_ENV==='production'&&!isCheckoutReady())return send(res,503,{error:'Secure checkout is not configured yet. Please contact our team to enquire about this piece.'});
-    const b=await readJson(req); const customer={name:clean(b.name,100).replace(/\s+/g,' '),email:clean(b.email,254),phone:clean(b.phone,40),address1:clean(b.address1,160).replace(/\s+/g,' '),address2:clean(b.address2,160).replace(/\s+/g,' '),city:clean(b.city,100).replace(/\s+/g,' '),postalCode:clean(b.postalCode,30).toUpperCase().replace(/\s+/g,' '),country:clean(b.country,80).replace(/\s+/g,' ')};
+    const b=await readJson(req); const customer={title:account.title||'',name:clean(b.name,100).replace(/\s+/g,' '),email:clean(b.email,254),phone:clean(b.phone,40),address1:clean(b.address1,160).replace(/\s+/g,' '),address2:clean(b.address2,160).replace(/\s+/g,' '),city:clean(b.city,100).replace(/\s+/g,' '),postalCode:clean(b.postalCode,30).toUpperCase().replace(/\s+/g,' '),country:clean(b.country,80).replace(/\s+/g,' ')};
     if (!customer.name||!validEmail(customer.email)||!customer.address1||!customer.city||!customer.postalCode||!customer.country) return send(res,400,{error:'Complete your name, email and delivery address.'});
     if(!validCustomerName(customer.name))return send(res,400,{error:'Enter a valid full name using letters and normal punctuation.'});
     if(!validPhone(customer.phone))return send(res,400,{error:'Enter a valid phone number with 7 to 15 digits, or leave it blank.'});
