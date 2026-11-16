@@ -674,3 +674,31 @@ footer.site-footer {
   .site-footer .footer-column .footer-enquiry-link { width: fit-content; max-width: 100%; padding: 10px 14px; }
   .site-footer .footer-copyright { font-size: 10px; }
 }
+
+/* Refined mobile footer: compact, calm and aligned with the emerald house palette. */
+@media (max-width: 760px) {
+  footer.site-footer { padding: 28px 22px max(20px, env(safe-area-inset-bottom)); }
+  .site-footer .footer-brand { gap: 3px; }
+  .site-footer .footer-monogram { width: 40px; height: 40px; }
+  .site-footer .footer-wordmark { width: 178px; max-height: 32px; }
+  .site-footer .footer-signature { max-width: 33ch; margin: 8px auto 20px; font-size: 9px; line-height: 1.8; letter-spacing: .13em; }
+  .site-footer .footer-columns { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px 18px; padding: 21px 0; }
+  .site-footer .footer-column { gap: 8px; }
+  .site-footer .footer-column h2 { margin-bottom: 2px; font-size: 10px; letter-spacing: .08em; }
+  .site-footer .footer-column a, .site-footer .footer-column p { font-size: 12px; line-height: 1.5; }
+  .site-footer .footer-column p { max-width: 28ch; }
+  .site-footer .footer-connect { display: none; }
+  .site-footer .footer-enquiry { grid-column: 1 / -1; padding-top: 17px; border-top: 1px solid rgba(232,220,197,.12); }
+  .site-footer .footer-enquiry p { display: none; }
+  .site-footer .footer-column .footer-enquiry-link { min-height: 0; width: fit-content; margin-top: 0; padding: 3px 0; border: 0; border-radius: 0; background: none; justify-content: flex-start; }
+  .site-footer .footer-column .footer-enquiry-link:hover { background: none; }
+  .site-footer .footer-social-icons { gap: 8px; }
+  .site-footer .footer-social-icon { width: 32px; height: 32px; }
+  .site-footer .footer-copyright { padding-top: 13px; font-size: 10px; line-height: 1.6; }
+}
+@media (max-width: 380px) {
+  footer.site-footer { padding-right: 18px; padding-left: 18px; }
+  .site-footer .footer-columns { gap: 20px 12px; }
+  .site-footer .footer-signature { font-size: 8px; letter-spacing: .105em; }
+  .site-footer .footer-column a, .site-footer .footer-column p { font-size: 11px; }
+}

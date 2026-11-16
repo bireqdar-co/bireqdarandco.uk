@@ -455,6 +455,10 @@ async function persistImage(input) {
   await fs.writeFile(path.join(UPLOAD_DIR,filename),image.buffer,{flag:'wx'});
   return `/uploads/${filename}`;
 }
+function isLiveCheckoutReady() {
+  const key = process.env.STRIPE_SECRET_KEY || '';
+  return key.startsWith('sk_live_') && process.env.LIVE_CHECKOUT_ENABLED === 'true' && !!postgresStore && APP_URL.startsWith('https://') && !!process.env.STRIPE_WEBHOOK_SECRET && Number.isInteger(db.settings.shippingCents) && (!db.settings.vatRegistered || db.settings.automaticTaxEnabled) && !db.products.some(p => p.published && p.isDemo);
+}
 function assertLiveCheckoutReady(items) {
   const key = process.env.STRIPE_SECRET_KEY || '';
   if (!key.startsWith('sk_live_')) return;
@@ -463,7 +467,7 @@ function assertLiveCheckoutReady(items) {
   if (!APP_URL.startsWith('https://') || !process.env.STRIPE_WEBHOOK_SECRET) throw Object.assign(new Error('Configure the secure store URL and Stripe payment webhook before live checkout.'),{status:503});
   if (db.settings.shippingCents === null || db.settings.shippingCents === undefined) throw Object.assign(new Error('Configure the delivery fee before live checkout.'),{status:503});
   if (db.settings.vatRegistered && !db.settings.automaticTaxEnabled) throw Object.assign(new Error('Configure Stripe automatic tax before live checkout.'),{status:503});
-  if ((items || []).some(item => item.isDemo)) throw Object.assign(new Error('Sample products cannot be sold with live payments.'),{status:400});
+  if ((items || []).some(item => item.isDemo)) throw Object.assign(new Error('This piece is not available to order online. Please enquire with our team.'),{status:400});
 }
 async function stripeCheckout(order, req) {
   const key=process.env.STRIPE_SECRET_KEY;
@@ -517,11 +521,13 @@ async function handleApi(req,res,url) {
   }
   if (req.method==='GET' && route==='/api/catalog') {
     const liveKey=(process.env.STRIPE_SECRET_KEY||'').startsWith('sk_live_');
-    const checkoutAvailable=!liveKey||(process.env.LIVE_CHECKOUT_ENABLED==='true'&&!!postgresStore&&APP_URL.startsWith('https://')&&!!process.env.STRIPE_WEBHOOK_SECRET&&db.settings.shippingCents!==null&&db.settings.shippingCents!==undefined&&(!db.settings.vatRegistered||db.settings.automaticTaxEnabled)&&!db.products.some(p=>p.published&&p.isDemo));
-    return send(res,200,{products:db.products.filter(p=>p.published).map(publicProduct),collections:db.collections.filter(c=>c.active).map(({id,name,slug,description})=>({id,name,slug,description})),currency:db.settings.currency,storeName:db.settings.storeName,shippingCents:db.settings.shippingCents,paymentConfigured:!!process.env.STRIPE_SECRET_KEY,checkoutAvailable,vatRegistered:!!db.settings.vatRegistered});
+    const production=process.env.NODE_ENV==='production';
+    const checkoutAvailable=production?isLiveCheckoutReady():!!process.env.STRIPE_SECRET_KEY&&(liveKey?isLiveCheckoutReady():true);
+    const products=db.products.filter(p=>p.published&&(process.env.NODE_ENV!=='production'||!p.isDemo));
+    return send(res,200,{products:products.map(publicProduct),collections:db.collections.filter(c=>c.active).map(({id,name,slug,description})=>({id,name,slug,description})),currency:db.settings.currency,storeName:db.settings.storeName,shippingCents:db.settings.shippingCents,paymentConfigured:!!process.env.STRIPE_SECRET_KEY,checkoutAvailable,vatRegistered:!!db.settings.vatRegistered});
   }
   if (req.method==='GET' && route==='/api/product') {
-    const p=db.products.find(x=>x.slug===url.searchParams.get('slug')&&x.published); return p?send(res,200,{product:publicProduct(p),collection:db.collections.find(c=>c.id===p.collectionId)?.name||''}):send(res,404,{error:'This piece is not available.'});
+    const p=db.products.find(x=>x.slug===url.searchParams.get('slug')&&x.published&&(process.env.NODE_ENV!=='production'||!x.isDemo)); return p?send(res,200,{product:publicProduct(p),collection:db.collections.find(c=>c.id===p.collectionId)?.name||''}):send(res,404,{error:'This piece is not available.'});
   }
   if (req.method==='POST' && route==='/api/reservations') {
     const b=await readJson(req); const name=clean(b.name,100), email=clean(b.email,254), message=clean(b.message,3000), reference=clean(b.reference,160), type=clean(b.type,30);
@@ -590,6 +596,7 @@ async function handleApi(req,res,url) {
     return send(res,404,{error:'Account route not found.'});
   }
   if (req.method==='POST' && route==='/api/checkout') {
+    if(process.env.NODE_ENV==='production'&&!isLiveCheckoutReady())return send(res,503,{error:'Secure checkout is currently unavailable. Please contact our team to enquire about this piece.'});
     const b=await readJson(req); const customer={name:clean(b.name,100),email:clean(b.email,254),phone:clean(b.phone,40),address1:clean(b.address1,160),address2:clean(b.address2,160),city:clean(b.city,100),postalCode:clean(b.postalCode,30),country:clean(b.country,80)};
     if (!customer.name||!validEmail(customer.email)||!customer.address1||!customer.city||!customer.postalCode||!customer.country) return send(res,400,{error:'Complete your name, email and delivery address.'});
     if (b.acceptTerms!==true) return send(res,400,{error:'Please confirm your delivery details and privacy notice.'});
@@ -603,17 +610,19 @@ async function handleApi(req,res,url) {
       }
       return send(res,200,{ok:true,preview:true,reference:prior.reference,redirectUrl:`/order.html?ref=${encodeURIComponent(prior.reference)}&preview=1`});
     }
-    const totals=computeOrder(b.items,customer.country); assertLiveCheckoutReady(totals.items); const shippingCents=Number.isInteger(db.settings.shippingCents)?db.settings.shippingCents:0;
+    const totals=computeOrder(b.items,customer.country); assertLiveCheckoutReady(totals.items); if(process.env.NODE_ENV==='production'&&totals.items.some(item=>item.isDemo))return send(res,409,{error:'This piece is not available to order online. Please enquire with our team.'}); const shippingCents=Number.isInteger(db.settings.shippingCents)?db.settings.shippingCents:0;
     const order={id:id(),reference:`BC-${shortRef()}`,checkoutRequestId:requestId,createdAt:new Date().toISOString(),status:'payment_pending',paymentMode:process.env.STRIPE_SECRET_KEY&&!totals.items.some(item=>item.isDemo)?'stripe':'preview',customer,customerId:account?.id||null,items:totals.items,subtotalCents:totals.total,taxCents:totals.tax,shippingCents,totalCents:totals.total+shippingCents,currency:totals.currency};
     db.orders.unshift(order); await saveDb();
     try {
       const session=await stripeCheckout(order,req);
       if (session) { order.stripeSessionId=session.id; order.paymentMode='stripe'; await saveDb(); return send(res,200,{ok:true,redirectUrl:session.url,reference:order.reference}); }
     } catch(err) { order.status='checkout_error';order.checkoutErrorAt=new Date().toISOString();await saveDb(); throw err; }
+    if(process.env.NODE_ENV==='production')return send(res,503,{error:'Secure checkout could not be started. Please contact our team to enquire about this piece.'});
     return send(res,200,{ok:true,preview:true,reference:order.reference,redirectUrl:`/order.html?ref=${encodeURIComponent(order.reference)}&preview=1`});
   }
   if (req.method==='GET' && route==='/api/order') {
     const ref=clean(url.searchParams.get('ref'),30).toUpperCase(); const order=db.orders.find(x=>x.reference===ref);
+    if(process.env.NODE_ENV==='production'&&order?.paymentMode!=='stripe')return send(res,404,{error:'Order not found. Check the order reference.'});
     return order?send(res,200,{reference:order.reference,status:order.status,paymentMode:order.paymentMode,items:order.items,totalCents:order.totalCents,subtotalCents:order.subtotalCents,shippingCents:order.shippingCents,taxCents:order.taxCents,currency:order.currency,createdAt:order.createdAt}):send(res,404,{error:'Order not found. Check the order reference.'});
   }
   if (req.method==='POST' && route==='/api/stripe-webhook') {
