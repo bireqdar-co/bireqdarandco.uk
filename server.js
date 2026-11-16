@@ -23,11 +23,15 @@ const APP_URL = process.env.APP_URL || process.env.RENDER_EXTERNAL_URL || '';
 const MAX_BODY = 7 * 1024 * 1024;
 const allowedCurrencies = new Set(['GBP', 'EUR', 'USD']);
 let setupKeyLogged = false;
+// Accept either a standard secret key or a restricted key; keep test/live checks centralized.
+function stripeKeyMode(key = process.env.STRIPE_SECRET_KEY) {
+  return String(key || '').match(/^(?:sk|rk)_(test|live)_/)?.[1] || '';
+}
 if(!Number.isInteger(PORT)||PORT<1||PORT>65535)throw new Error('PORT must be an integer between 1 and 65535.');
 if(process.env.NODE_ENV==='production'&&!process.env.DATABASE_URL)throw new Error('DATABASE_URL is required when NODE_ENV=production.');
 if(process.env.NODE_ENV==='production'&&!process.env.ADMIN_SETUP_KEY)throw new Error('ADMIN_SETUP_KEY is required when NODE_ENV=production.');
 if(APP_URL){try{const parsed=new URL(APP_URL);if(!['https:','http:'].includes(parsed.protocol))throw new Error();}catch{throw new Error('APP_URL must be a valid HTTP or HTTPS URL.');}}
-if(process.env.STRIPE_SECRET_KEY&&!/^sk_(test|live)_/.test(process.env.STRIPE_SECRET_KEY))throw new Error('STRIPE_SECRET_KEY must be a Stripe test or live secret key.');
+if(process.env.STRIPE_SECRET_KEY&&!stripeKeyMode())throw new Error('STRIPE_SECRET_KEY must be a Stripe test or live secret/restricted key.');
 if(process.env.ADMIN_SETUP_KEY&&process.env.ADMIN_SETUP_KEY.length<32)throw new Error('ADMIN_SETUP_KEY must contain at least 32 characters.');
 if(process.env.LIVE_CHECKOUT_ENABLED!==undefined&&!['true','false'].includes(process.env.LIVE_CHECKOUT_ENABLED))throw new Error('LIVE_CHECKOUT_ENABLED must be true or false.');
 if(Boolean(process.env.RESEND_API_KEY)!==Boolean(process.env.RESEND_FROM_EMAIL))throw new Error('Set both RESEND_API_KEY and RESEND_FROM_EMAIL to enable password reset email.');
@@ -463,12 +467,10 @@ async function persistImage(input) {
 }
 // Stripe and tax helpers calculate totals from trusted catalogue records.
 function isLiveCheckoutReady() {
-  const key = process.env.STRIPE_SECRET_KEY || '';
-  return key.startsWith('sk_live_') && process.env.LIVE_CHECKOUT_ENABLED === 'true' && !!postgresStore && APP_URL.startsWith('https://') && !!process.env.STRIPE_WEBHOOK_SECRET && Number.isInteger(db.settings.shippingCents) && (!db.settings.vatRegistered || db.settings.automaticTaxEnabled) && !db.products.some(p => p.published && p.isDemo);
+  return stripeKeyMode() === 'live' && process.env.LIVE_CHECKOUT_ENABLED === 'true' && !!postgresStore && APP_URL.startsWith('https://') && !!process.env.STRIPE_WEBHOOK_SECRET && Number.isInteger(db.settings.shippingCents) && (!db.settings.vatRegistered || db.settings.automaticTaxEnabled) && !db.products.some(p => p.published && p.isDemo);
 }
 function assertLiveCheckoutReady(items) {
-  const key = process.env.STRIPE_SECRET_KEY || '';
-  if (!key.startsWith('sk_live_')) return;
+  if (stripeKeyMode() !== 'live') return;
   if (process.env.LIVE_CHECKOUT_ENABLED !== 'true') throw Object.assign(new Error('Live payments are disabled until the store owner completes launch checks.'),{status:503});
   if (!postgresStore) throw Object.assign(new Error('Live checkout requires the connected PostgreSQL database.'),{status:503});
   if (!APP_URL.startsWith('https://') || !process.env.STRIPE_WEBHOOK_SECRET) throw Object.assign(new Error('Configure the secure store URL and Stripe payment webhook before live checkout.'),{status:503});
@@ -479,12 +481,13 @@ function assertLiveCheckoutReady(items) {
 async function stripeCheckout(order, req) {
   const key=process.env.STRIPE_SECRET_KEY;
   if (!key) return null;
+  const keyMode = stripeKeyMode(key);
   assertLiveCheckoutReady(order.items);
   if (order.items.some(item=>item.isDemo)) {
-    if (key.startsWith('sk_live_')) throw Object.assign(new Error('Sample listings cannot be charged in live mode. Replace them with verified products first.'),{status:400});
+    if (keyMode === 'live') throw Object.assign(new Error('Sample listings cannot be charged in live mode. Replace them with verified products first.'),{status:400});
     return null;
   }
-  if (!key.startsWith('sk_test_') && !key.startsWith('sk_live_')) throw Object.assign(new Error('Stripe secret key is not valid.'),{status:503});
+  if (!keyMode) throw Object.assign(new Error('Stripe secret key is not valid.'),{status:503});
   const host=APP_URL || `http://${req.headers.host}`;
   const params=new URLSearchParams();
   params.set('mode','payment'); params.set('success_url',`${host}/order.html?ref=${encodeURIComponent(order.reference)}&session_id={CHECKOUT_SESSION_ID}`); params.set('cancel_url',`${host}/checkout.html?cancelled=1`);
@@ -527,7 +530,7 @@ async function handleApi(req,res,url) {
     return send(res,200,{ok:true,database:postgresStore?'postgres':'local-json',products:db.products.length,collections:db.collections.length});
   }
   if (req.method==='GET' && route==='/api/catalog') {
-    const liveKey=(process.env.STRIPE_SECRET_KEY||'').startsWith('sk_live_');
+    const liveKey=stripeKeyMode()==='live';
     const production=process.env.NODE_ENV==='production';
     const checkoutAvailable=production?isLiveCheckoutReady():!!process.env.STRIPE_SECRET_KEY&&(liveKey?isLiveCheckoutReady():true);
     const products=db.products.filter(p=>p.published&&(process.env.NODE_ENV!=='production'||!p.isDemo));
