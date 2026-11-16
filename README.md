@@ -4,7 +4,7 @@ A Node.js storefront and owner studio for jewellery, gemstones (including natura
 
 ## Local development
 
-Use Node.js 20 or newer. Install dependencies and start the app:
+Use Node.js 22 or newer. Install dependencies and start the app:
 
 ```sh
 npm install
@@ -13,7 +13,9 @@ npm start
 
 Without `DATABASE_URL`, local development uses `data/store.json`. For a local PostgreSQL database, copy `.env.example` to `.env`, set `DATABASE_URL`, and start the app. On first connection, if PostgreSQL has no store state, the app migrates the existing local JSON store into PostgreSQL; if neither exists it creates sample collections and products. PostgreSQL becomes the primary store after initialization. The uploads folder still needs durable disk storage.
 
-The first run prints an owner setup key. Use it at `/admin.html` to create the owner login. Do not commit `.env`, database credentials, Stripe keys, customer information or order exports.
+The first local run prints an owner setup key. In production, retrieve `ADMIN_SETUP_KEY` from the Render environment settings; production logs do not reveal it. Use the one-time key at `/admin.html` to create the owner login. Do not commit `.env`, database credentials, email or Stripe keys, customer information or order exports.
+
+Customer passwords are stored as Argon2id hashes. Existing scrypt password records are verified on the next successful sign-in and upgraded to Argon2id without requiring a password reset. Customers can request a single-use password-reset link that expires after 30 minutes. Email delivery uses Resend when `RESEND_API_KEY` and `RESEND_FROM_EMAIL` are configured. Verify your sending domain with Resend, then add both values to the Render environment (and `.env` locally). The reset endpoint returns a generic response to avoid revealing which email addresses have accounts.
 
 ## Product data model
 
@@ -74,7 +76,7 @@ UK VAT depends on the business's VAT registration, goods classification and cust
 
 ## Owner setup key and database reference
 
-The Owner Studio setup key is **not** a permanent API key. On first startup, if no owner account exists, the server prints `Owner setup key: …` in the Render web service logs. Open the service's **Logs**, find the most recent startup entry, and use that key at `/admin.html` to create your owner username and password. Keep the key private. After creating the owner account, sign in with those credentials; the setup key is no longer your login. If the generated key is no longer available, set a new private `ADMIN_SETUP_KEY` value in the Render service environment and redeploy while owner setup is still pending; the app updates the stored setup key from that value. Do not change this after creating the owner account.
+The Owner Studio setup key is **not** a permanent API key. In production, copy `ADMIN_SETUP_KEY` from the Render web service's **Environment** settings and use it once at `/admin.html` to create your owner username and password. Keep the key private. After creating the owner account, sign in with those credentials; the setup key is no longer your login. If setup is still pending and the key must be replaced, update the Render environment value and redeploy. Do not change it after creating the owner account.
 
 For the table-by-table structure and safe read-only SQL examples, see [`db/SCHEMA.md`](db/SCHEMA.md). The version 6 migration adds more preview catalogue items and removes the sample bespoke product; bespoke is now request-led. New bespoke enquiries save the customer's style, metal, optional gold purity and stone carat, size, approximate weight, optional description, contact details and optional image in the reservations JSONB record. A signed-in customer uses their saved name/email; guests enter their contact details. Attached reference images are limited to 2 MB and remain in PostgreSQL with the request.
 

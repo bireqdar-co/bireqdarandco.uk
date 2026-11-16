@@ -3,6 +3,8 @@ const fs = require('node:fs/promises');
 const path = require('node:path');
 const crypto = require('node:crypto');
 const fsSync = require('node:fs');
+const net = require('node:net');
+const argon2 = require('argon2');
 const envFile = path.join(__dirname, '.env');
 try { for (const line of fsSync.readFileSync(envFile, 'utf8').split(/\r?\n/)) { const m=line.match(/^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)\s*$/); if (m && process.env[m[1]]===undefined) process.env[m[1]]=m[2].replace(/^['"]|['"]$/g,''); } } catch {}
 const { URL } = require('node:url');
@@ -12,6 +14,7 @@ const DATA_DIR = path.resolve(process.env.DATA_DIR || path.join(ROOT, 'data'));
 const UPLOAD_DIR = path.resolve(process.env.UPLOAD_DIR || path.join(ROOT, 'uploads'));
 const DB_FILE = path.join(DATA_DIR, 'store.json');
 let postgresStore = null;
+const rateLimitBuckets = new Map();
 const PORT = Number(process.env.PORT || 3000);
 // Render routes public traffic to 0.0.0.0; keep this as the default if HOST isn't configured.
 const HOST = process.env.HOST || '0.0.0.0';
@@ -19,6 +22,15 @@ const APP_URL = process.env.APP_URL || process.env.RENDER_EXTERNAL_URL || '';
 const MAX_BODY = 7 * 1024 * 1024;
 const allowedCurrencies = new Set(['GBP', 'EUR', 'USD']);
 let setupKeyLogged = false;
+if(!Number.isInteger(PORT)||PORT<1||PORT>65535)throw new Error('PORT must be an integer between 1 and 65535.');
+if(process.env.NODE_ENV==='production'&&!process.env.DATABASE_URL)throw new Error('DATABASE_URL is required when NODE_ENV=production.');
+if(process.env.NODE_ENV==='production'&&!process.env.ADMIN_SETUP_KEY)throw new Error('ADMIN_SETUP_KEY is required when NODE_ENV=production.');
+if(APP_URL){try{const parsed=new URL(APP_URL);if(!['https:','http:'].includes(parsed.protocol))throw new Error();}catch{throw new Error('APP_URL must be a valid HTTP or HTTPS URL.');}}
+if(process.env.STRIPE_SECRET_KEY&&!/^sk_(test|live)_/.test(process.env.STRIPE_SECRET_KEY))throw new Error('STRIPE_SECRET_KEY must be a Stripe test or live secret key.');
+if(process.env.ADMIN_SETUP_KEY&&process.env.ADMIN_SETUP_KEY.length<32)throw new Error('ADMIN_SETUP_KEY must contain at least 32 characters.');
+if(process.env.LIVE_CHECKOUT_ENABLED!==undefined&&!['true','false'].includes(process.env.LIVE_CHECKOUT_ENABLED))throw new Error('LIVE_CHECKOUT_ENABLED must be true or false.');
+if(Boolean(process.env.RESEND_API_KEY)!==Boolean(process.env.RESEND_FROM_EMAIL))throw new Error('Set both RESEND_API_KEY and RESEND_FROM_EMAIL to enable password reset email.');
+if(process.env.RESEND_FROM_EMAIL&&!/^[^\s<>@]+@[^\s<>@]+\.[^\s<>@]+$/.test(process.env.RESEND_FROM_EMAIL))throw new Error('RESEND_FROM_EMAIL must be a single email address on a verified sending domain.');
 
 const id = () => crypto.randomUUID();
 const shortRef = () => crypto.randomBytes(5).toString('hex').toUpperCase();
@@ -29,6 +41,32 @@ const safeEqual = (a, b) => {
   const bb = Buffer.from(String(b || ''));
   return aa.length === bb.length && crypto.timingSafeEqual(aa, bb);
 };
+async function hashPassword(password) {
+  return argon2.hash(password,{type:argon2.argon2id,memoryCost:19456,timeCost:2,parallelism:1,hashLength:32});
+}
+async function verifyPassword(record,password) {
+  if(record?.passwordHash&&String(record.passwordHash).startsWith('$argon2id$')) {
+    try { return {valid:await argon2.verify(record.passwordHash,password),rehash:null}; } catch { return {valid:false,rehash:null}; }
+  }
+  if(record?.salt&&record?.hash) {
+    const valid=safeEqual(crypto.scryptSync(password,record.salt,64).toString('hex'),record.hash);
+    return {valid,rehash:valid?await hashPassword(password):null};
+  }
+  return {valid:false,rehash:null};
+}
+async function sendPasswordResetEmail(to,resetUrl) {
+  if(!process.env.RESEND_API_KEY||!process.env.RESEND_FROM_EMAIL)return false;
+  try {
+    const response=await fetch('https://api.resend.com/emails',{
+      method:'POST',headers:{Authorization:`Bearer ${process.env.RESEND_API_KEY}`,'Content-Type':'application/json'},
+      body:JSON.stringify({from:`BIREQDAR & CO. <${process.env.RESEND_FROM_EMAIL}>`,to:[to],subject:'Reset your BIREQDAR & CO. password',text:`Use this link within 30 minutes to reset your password: ${resetUrl}\n\nIf you did not request a reset, you can ignore this email.`,html:`<p>We received a request to reset your BIREQDAR &amp; CO. account password.</p><p><a href="${resetUrl}">Reset your password</a></p><p>This link expires in 30 minutes and can be used once. If you did not request a reset, you can ignore this email.</p>`}),
+      signal:AbortSignal.timeout(10000)
+    });
+    await response.arrayBuffer();
+    if(!response.ok){console.error(JSON.stringify({event:'password_reset_email_failed',status:response.status}));return false;}
+    return true;
+  } catch { console.error(JSON.stringify({event:'password_reset_email_failed',reason:'provider_unavailable'}));return false; }
+}
 
 function seed() {
   const collections = [
@@ -208,7 +246,11 @@ async function loadDb() {
     if (!/^[a-f0-9]{64}$/.test(key)) { db.customerSessions[tokenHash(key)] = db.customerSessions[key]; delete db.customerSessions[key]; migrated = true; }
   }
   if(migrated||needsSave)await saveDb();
-  if (!db.admin && !setupKeyLogged) { console.log(`Owner setup key: ${db.setupKey || 'set ADMIN_SETUP_KEY in the environment'}`); setupKeyLogged = true; }
+  if (!db.admin && !setupKeyLogged) {
+    if(process.env.NODE_ENV==='production')console.log('Owner setup is pending. Retrieve ADMIN_SETUP_KEY from the deployment environment settings.');
+    else console.log(`Owner setup key: ${db.setupKey || 'set ADMIN_SETUP_KEY in the environment'}`);
+    setupKeyLogged = true;
+  }
 }
 function saveDb() {
   // Capture a consistent point-in-time snapshot before waiting behind previous writes.
@@ -236,9 +278,90 @@ async function readRaw(req) {
   return Buffer.concat(chunks);
 }
 async function readJson(req) {
+  const contentType=String(req.headers['content-type']||'');
+  if(!/^application\/json(?:\s*;|$)/i.test(contentType))throw Object.assign(new Error('Send this request as JSON.'),{status:415});
   const raw=await readRaw(req);
-  try { return raw.length ? JSON.parse(raw.toString('utf8')) : {}; }
+  try {
+    const value=raw.length ? JSON.parse(raw.toString('utf8')) : {};
+    if(!value||typeof value!=='object'||Array.isArray(value))throw new Error('Expected an object.');
+    return value;
+  }
   catch { throw Object.assign(new Error('Invalid JSON'), { status:400 }); }
+}
+function clientAddress(req) {
+  // Render's Cloudflare edge overwrites CF-Connecting-IP. X-Forwarded-For is not trusted here.
+  const forwarded=String(req.headers['cf-connecting-ip']||'').trim();
+  if(process.env.RENDER_EXTERNAL_URL&&net.isIP(forwarded))return forwarded;
+  return req.socket.remoteAddress||'unknown';
+}
+function consumeRateLimit(key,limit,windowMs) {
+  const now=Date.now();
+  let entry=rateLimitBuckets.get(key);
+  if(!entry||entry.resetAt<=now){entry={count:0,resetAt:now+windowMs};rateLimitBuckets.set(key,entry);}
+  entry.count++;
+  if(rateLimitBuckets.size>5000){for(const [bucket,value] of rateLimitBuckets)if(value.resetAt<=now)rateLimitBuckets.delete(bucket);}
+  return {allowed:entry.count<=limit,retryAfter:Math.max(1,Math.ceil((entry.resetAt-now)/1000))};
+}
+function enforceRateLimit(req,res,key,limit,windowMs,route=req.url) {
+  const result=consumeRateLimit(key,limit,windowMs);
+  if(result.allowed)return true;
+  res.setHeader('Retry-After',String(result.retryAfter));securityEvent(req,'rate_limit_exceeded',{route,method:req.method});
+  send(res,429,{error:'Too many requests. Please wait and try again.'});return false;
+}
+function ratePolicy(method,route) {
+  if(method==='POST'&&route==='/api/admin/setup')return {bucket:'owner-setup',limit:3,window:60*60*1000};
+  if(method==='POST'&&route==='/api/admin/login')return {bucket:'owner-login',limit:8,window:15*60*1000};
+  if(method==='POST'&&['/api/account/login','/api/account/register'].includes(route))return {bucket:'customer-auth',limit:8,window:15*60*1000};
+  if(method==='POST'&&route==='/api/account/forgot-password')return {bucket:'password-reset-request',limit:4,window:60*60*1000};
+  if(method==='POST'&&route==='/api/account/reset-password')return {bucket:'password-reset-complete',limit:8,window:15*60*1000};
+  if(method==='POST'&&route==='/api/reservations')return {bucket:'enquiries',limit:8,window:15*60*1000};
+  if(method==='POST'&&route==='/api/checkout')return {bucket:'checkout',limit:10,window:15*60*1000};
+  if(method==='GET'&&route==='/api/order')return {bucket:'order-lookup',limit:30,window:60*1000};
+  if(method==='POST'&&route==='/api/admin/upload')return {bucket:'owner-upload',limit:30,window:15*60*1000};
+  if(route.startsWith('/api/admin/')&&['POST','PUT','PATCH','DELETE'].includes(method))return {bucket:'owner-writes',limit:120,window:15*60*1000};
+  return null;
+}
+function securityEvent(req,event,details={}) {
+  const record={event,requestId:String(req.headers['rndr-id']||'').slice(0,100)||undefined,...details};
+  console.warn(JSON.stringify(record));
+}
+function applySecurityHeaders(req,res) {
+  res.setHeader('X-Content-Type-Options','nosniff');
+  res.setHeader('X-Frame-Options','DENY');
+  res.setHeader('Referrer-Policy','strict-origin-when-cross-origin');
+  res.setHeader('Permissions-Policy','camera=(), geolocation=(), microphone=()');
+  res.setHeader('Cross-Origin-Resource-Policy','same-origin');
+  res.setHeader('Content-Security-Policy',"default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; font-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self' https://checkout.stripe.com");
+  const forwardedProto=String(req.headers['x-forwarded-proto']||'').split(',')[0].trim().toLowerCase();
+  if(forwardedProto==='https'||(!process.env.RENDER_EXTERNAL_URL&&req.socket.encrypted))res.setHeader('Strict-Transport-Security','max-age=31536000');
+}
+function isSameOriginRequest(req) {
+  const supplied=String(req.headers.origin||'');
+  if(!supplied)return false;
+  let origin;
+  try { origin=new URL(supplied).origin; } catch { return false; }
+  const allowed=new Set();
+  for(const candidate of [APP_URL,process.env.RENDER_EXTERNAL_URL]){
+    if(!candidate)continue;
+    try { allowed.add(new URL(candidate).origin); } catch {}
+  }
+  const host=String(req.headers.host||'');
+  const forwardedProto=String(req.headers['x-forwarded-proto']||'').split(',')[0].trim().toLowerCase();
+  if(host&&['http','https'].includes(forwardedProto))allowed.add(`${forwardedProto}://${host}`);
+  if(process.env.NODE_ENV!=='production'&&!process.env.RENDER_EXTERNAL_URL&&host){
+    const proto=req.socket.encrypted?'https':'http';allowed.add(`${proto}://${host}`);
+  }
+  return allowed.has(origin);
+}
+function parseImageDataUri(value,maxBytes) {
+  const match=String(value||'').match(/^data:image\/(png|jpeg|webp);base64,([a-zA-Z0-9+/=]+)$/);
+  if(!match)return null;
+  const buffer=Buffer.from(match[2],'base64');
+  if(buffer.length>maxBytes||buffer.toString('base64').replace(/=+$/,'')!==match[2].replace(/=+$/,''))return null;
+  const actualType=buffer.subarray(0,3).equals(Buffer.from([0xff,0xd8,0xff]))?'jpeg':
+    buffer.subarray(0,8).equals(Buffer.from([0x89,0x50,0x4e,0x47,0x0d,0x0a,0x1a,0x0a]))?'png':
+    buffer.length>=12&&buffer.toString('ascii',0,4)==='RIFF'&&buffer.toString('ascii',8,12)==='WEBP'?'webp':'';
+  return actualType===match[1]?{type:actualType,buffer}:null;
 }
 function clean(s, max=5000) { return String(s ?? '').trim().slice(0,max); }
 function validEmail(s) { return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s) && s.length <= 254; }
@@ -321,17 +444,15 @@ function productInput(input, existing=null) {
     name, type, category, collectionId, vatRate, brand:type==='watch'?brand:'', bullionType:type==='bullion'?bullionType:'', gemstoneType:type==='jewellery'?gemstoneType:'', short:clean(input.short,220), description:clean(input.description,5000),
     priceCents:inquiryOnly?null:rawPrice, stock:Math.max(0,Math.min(100000,Math.floor(Number(input.stock)||0))), currency,
     image:clean(input.image,1000), published:!!input.published, isDemo:!!input.isDemo, inquiryOnly,
-    specifications:Array.isArray(input.specifications)?input.specifications.slice(0,20).map(x=>({label:clean(x.label,60),value:clean(x.value,160)})).filter(x=>x.label&&x.value):[]
+    specifications:Array.isArray(input.specifications)?input.specifications.slice(0,20).filter(x=>x&&typeof x==='object'&&!Array.isArray(x)).map(x=>({label:clean(x.label,60),value:clean(x.value,160)})).filter(x=>x.label&&x.value):[]
   };
 }
 async function persistImage(input) {
   const data=clean(input,6*1024*1024);
-  const match=data.match(/^data:image\/(png|jpeg|webp);base64,([a-zA-Z0-9+/=]+)$/);
-  if (!match) throw Object.assign(new Error('Upload a PNG, JPEG or WebP image.'),{status:400});
-  const buffer=Buffer.from(match[2],'base64');
-  if (buffer.length > 4*1024*1024) throw Object.assign(new Error('Images must be under 4 MB.'),{status:413});
-  const ext=match[1]==='jpeg'?'jpg':match[1]; const filename=`${crypto.randomUUID()}.${ext}`;
-  await fs.writeFile(path.join(UPLOAD_DIR,filename),buffer,{flag:'wx'});
+  const image=parseImageDataUri(data,4*1024*1024);
+  if (!image) throw Object.assign(new Error('Upload a valid PNG, JPEG or WebP image under 4 MB.'),{status:400});
+  const ext=image.type==='jpeg'?'jpg':image.type; const filename=`${crypto.randomUUID()}.${ext}`;
+  await fs.writeFile(path.join(UPLOAD_DIR,filename),image.buffer,{flag:'wx'});
   return `/uploads/${filename}`;
 }
 function assertLiveCheckoutReady(items) {
@@ -375,6 +496,7 @@ function computeOrder(lines, country='') {
   for(const order of db.orders){if(order.status!=='payment_pending'||order.paymentMode!=='stripe'||now-Date.parse(order.createdAt)>=24*60*60*1000)continue;for(const item of order.items||[])reservedByProduct.set(item.id,(reservedByProduct.get(item.id)||0)+Number(item.quantity||0));}
   const countryText=String(country||'').trim(); const ukCountry=/(^|[^a-z])(uk|gb)(?=$|[^a-z])|united kingdom|great britain|britain|england|scotland|wales|northern ireland/i.test(countryText); const uk=db.settings.vatRegistered&&ukCountry;
   for (const line of lines) {
+    if(!line||typeof line!=='object'||Array.isArray(line))throw Object.assign(new Error('Each bag item must be a valid product line.'),{status:400});
     const p=db.products.find(x=>x.id===line.id && x.published);
     const qty=Math.floor(Number(line.quantity));
     if (!p || p.type==='watch' || p.inquiryOnly || p.priceCents===null) throw Object.assign(new Error('One item in your bag can no longer be purchased. Please refresh your bag.'),{status:409});
@@ -387,6 +509,9 @@ function computeOrder(lines, country='') {
 }
 async function handleApi(req,res,url) {
   const route=url.pathname;
+  if(['POST','PUT','PATCH','DELETE'].includes(req.method)&&route!=='/api/stripe-webhook'&&!isSameOriginRequest(req))return send(res,403,{error:'This request origin is not allowed.'});
+  const policy=ratePolicy(req.method,route);
+  if(policy&&!enforceRateLimit(req,res,`${clientAddress(req)}:${policy.bucket}`,policy.limit,policy.window,route))return;
   if (req.method==='GET' && route==='/api/store') {
     return send(res,200,{ok:true,database:postgresStore?'postgres':'local-json',products:db.products.length,collections:db.collections.length});
   }
@@ -405,9 +530,7 @@ async function handleApi(req,res,url) {
     let attachment='';
     if(type==='bespoke'&&b.attachment){
       attachment=clean(b.attachment,3*1024*1024);
-      const match=attachment.match(/^data:image\/(png|jpeg|webp);base64,([a-zA-Z0-9+/=]+)$/);
-      if(!match)return send(res,400,{error:'Reference images must be PNG, JPEG or WebP.'});
-      if(Buffer.from(match[2],'base64').length>2*1024*1024)return send(res,413,{error:'Reference images must be 2 MB or smaller.'});
+      if(!parseImageDataUri(attachment,2*1024*1024))return send(res,400,{error:'Reference images must be valid PNG, JPEG or WebP files under 2 MB.'});
     }
     const details=type==='bespoke'?{
       style:clean(b.style,40),metal:clean(b.metal,80),goldCarat:clean(b.goldCarat,20),stoneCarat:clean(b.stoneCarat,20),size:clean(b.size,80),weight:clean(b.weight,40),description:clean(b.description,3000),attachment
@@ -423,16 +546,43 @@ async function handleApi(req,res,url) {
       return send(res,200,{authenticated:true,customer:publicCustomer(session.customer),orders});
     }
     if(req.method==='POST'&&route==='/api/account/register'){
-      const b=await readJson(req),name=clean(b.name,100),email=clean(b.email,254).toLowerCase(),password=String(b.password||''),ip=`customer:${req.socket.remoteAddress}`,now=Date.now();
-      const recent=(loginAttempts.get(ip)||[]).filter(t=>now-t<15*60*1000);if(recent.length>=8)return send(res,429,{error:'Too many attempts. Please wait 15 minutes and try again.'});
+      const b=await readJson(req),name=clean(b.name,100),email=clean(b.email,254).toLowerCase(),password=String(b.password||'');
+      if(!enforceRateLimit(req,res,`account-register:${email}`,5,15*60*1000,route))return;
       if(name.length<2||!validEmail(email)||password.length<12||password.length>200)return send(res,400,{error:'Enter your name, a valid email and a password of at least 12 characters.'});
-      if(db.customers.some(c=>c.email===email)){recent.push(now);loginAttempts.set(ip,recent);return send(res,409,{error:'An account with this email already exists. Please sign in.'});}
-      const salt=crypto.randomBytes(16).toString('hex'),hash=crypto.scryptSync(password,salt,64).toString('hex');const customer={id:id(),name,email,salt,hash,createdAt:new Date().toISOString()};db.customers.push(customer);const token=issueCustomerSession(customer);await saveDb();loginAttempts.delete(ip);return send(res,201,{authenticated:true,customer:publicCustomer(customer)},{'Set-Cookie':customerCookie(token)});
+      if(db.customers.some(c=>c.email===email))return send(res,409,{error:'An account with this email already exists. Please sign in.'});
+      const customer={id:id(),name,email,passwordHash:await hashPassword(password),createdAt:new Date().toISOString()};db.customers.push(customer);const token=issueCustomerSession(customer);await saveDb();securityEvent(req,'customer_account_created');return send(res,201,{authenticated:true,customer:publicCustomer(customer)},{'Set-Cookie':customerCookie(token)});
     }
     if(req.method==='POST'&&route==='/api/account/login'){
-      const b=await readJson(req),email=clean(b.email,254).toLowerCase(),password=String(b.password||''),ip=`customer:${req.socket.remoteAddress}`,now=Date.now();const recent=(loginAttempts.get(ip)||[]).filter(t=>now-t<15*60*1000);if(recent.length>=8)return send(res,429,{error:'Too many attempts. Please wait 15 minutes and try again.'});
-      const customer=db.customers.find(c=>c.email===email);if(!customer||!safeEqual(crypto.scryptSync(password,customer.salt,64).toString('hex'),customer.hash)){recent.push(now);loginAttempts.set(ip,recent);return send(res,401,{error:'Email or password is incorrect.'});}
-      loginAttempts.delete(ip);const token=issueCustomerSession(customer);await saveDb();return send(res,200,{authenticated:true,customer:publicCustomer(customer)},{'Set-Cookie':customerCookie(token)});
+      const b=await readJson(req),email=clean(b.email,254).toLowerCase(),password=String(b.password||'');
+      if(!enforceRateLimit(req,res,`account-login:${email}`,5,15*60*1000,route))return;
+      if(password.length<1||password.length>200)return send(res,400,{error:'Email or password is incorrect.'});
+      const customer=db.customers.find(c=>c.email===email),verified=customer?await verifyPassword(customer,password):{valid:false};if(!verified.valid){securityEvent(req,'customer_login_failed');return send(res,401,{error:'Email or password is incorrect.'});}
+      if(verified.rehash){customer.passwordHash=verified.rehash;delete customer.salt;delete customer.hash;}
+      const token=issueCustomerSession(customer);await saveDb();securityEvent(req,'customer_login_succeeded');return send(res,200,{authenticated:true,customer:publicCustomer(customer)},{'Set-Cookie':customerCookie(token)});
+    }
+    if(req.method==='POST'&&route==='/api/account/forgot-password'){
+      const b=await readJson(req),email=clean(b.email,254).toLowerCase();
+      if(!validEmail(email))return send(res,400,{error:'Enter a valid email address.'});
+      if(!enforceRateLimit(req,res,`password-reset-email:${email}`,3,60*60*1000,route))return;
+      if(!process.env.RESEND_API_KEY||!process.env.RESEND_FROM_EMAIL||!APP_URL.startsWith('https://'))return send(res,503,{error:'Password reset email is not configured yet.'});
+      const customer=db.customers.find(c=>c.email===email);
+      if(customer){
+        const resetToken=crypto.randomBytes(32).toString('base64url');customer.resetTokenHash=tokenHash(resetToken);customer.resetExpiresAt=Date.now()+30*60*1000;await saveDb();
+        const resetUrl=`${APP_URL.replace(/\/$/,'')}/account.html?reset=${encodeURIComponent(resetToken)}`;
+        if(!await sendPasswordResetEmail(customer.email,resetUrl)){delete customer.resetTokenHash;delete customer.resetExpiresAt;await saveDb();securityEvent(req,'password_reset_delivery_failed');}
+        else securityEvent(req,'password_reset_email_sent');
+      }
+      return send(res,200,{ok:true,message:'If an account exists for that email, a reset link has been sent. Check your inbox.'});
+    }
+    if(req.method==='POST'&&route==='/api/account/reset-password'){
+      const b=await readJson(req),resetToken=String(b.token||''),password=String(b.password||'');
+      if(password.length<12||password.length>200)return send(res,400,{error:'Choose a password between 12 and 200 characters.'});
+      if(!/^[A-Za-z0-9_-]{40,60}$/.test(resetToken))return send(res,400,{error:'This reset link is invalid or expired. Request a new one.'});
+      const resetHash=tokenHash(resetToken),customer=db.customers.find(c=>c.resetTokenHash===resetHash&&Number(c.resetExpiresAt)>Date.now());
+      if(!customer)return send(res,400,{error:'This reset link is invalid or expired. Request a new one.'});
+      customer.passwordHash=await hashPassword(password);delete customer.salt;delete customer.hash;delete customer.resetTokenHash;delete customer.resetExpiresAt;
+      for(const [hash,session] of Object.entries(db.customerSessions))if(session.customerId===customer.id)delete db.customerSessions[hash];
+      await saveDb();securityEvent(req,'customer_password_reset');return send(res,200,{ok:true,message:'Your password has been reset. You can now sign in.'});
     }
     if(req.method==='POST'&&route==='/api/account/logout'){
       const token=customerTokenFrom(req);delete db.customerSessions[token];await saveDb();return send(res,200,{ok:true},{'Set-Cookie':customerCookie('',0)});
@@ -482,9 +632,10 @@ async function handleApi(req,res,url) {
     if (event.type==='checkout.session.completed' || event.type==='checkout.session.async_payment_succeeded') {
       const session=event.data?.object; const order=db.orders.find(o=>o.stripeSessionId===session?.id);
       if (order && session.metadata?.orderId===order.id && session.client_reference_id===order.reference && order.status!=='paid' && session.payment_status==='paid') {
-        order.status='paid'; order.paidAt=new Date().toISOString(); if (Number.isInteger(session.amount_total)) order.totalCents=session.amount_total; if (Number.isInteger(session.total_details?.amount_tax)) order.taxCents=session.total_details.amount_tax;
+        if(!Number.isInteger(session.amount_total)||session.amount_total!==order.totalCents||String(session.currency||'').toUpperCase()!==order.currency){securityEvent(req,'stripe_payment_mismatch');return text(res,400,'Payment verification failed.');}
+        order.status='paid'; order.paidAt=new Date().toISOString(); if (Number.isInteger(session.total_details?.amount_tax)) order.taxCents=session.total_details.amount_tax;
         for (const item of order.items) { const p=db.products.find(x=>x.id===item.id); if (p) p.stock=Math.max(0,p.stock-item.quantity); }
-        await saveDb();
+        await saveDb();securityEvent(req,'stripe_payment_confirmed');
       }
     } else if (event.type==='checkout.session.expired' || event.type==='checkout.session.async_payment_failed') {
       const session=event.data?.object; const order=db.orders.find(o=>o.stripeSessionId===session?.id);
@@ -497,23 +648,27 @@ async function handleApi(req,res,url) {
     if (req.method==='GET'&&route==='/api/admin/status') return send(res,200,{setupRequired:!db.admin,hasSetupKey:!!db.setupKey});
     if (req.method==='POST'&&route==='/api/admin/setup') {
       if (db.admin) return send(res,409,{error:'Owner access has already been set up.'});
-      const b=await readJson(req); if (!db.setupKey || !safeEqual(b.setupKey,db.setupKey)) return send(res,403,{error:'Setup key does not match. Start the owner setup using the key shown by the server.'});
+      const b=await readJson(req); if (!db.setupKey || !safeEqual(b.setupKey,db.setupKey)) { securityEvent(req,'owner_setup_failed');return send(res,403,{error:'Setup key does not match. Start the owner setup using the key shown by the server.'}); }
       const username=clean(b.username,50), password=String(b.password||'');
       if (!/^[a-zA-Z0-9._-]{3,50}$/.test(username)||password.length<12||password.length>200) return send(res,400,{error:'Use a 3–50 character username and a password of at least 12 characters.'});
-      const salt=crypto.randomBytes(16).toString('hex'); const hash=crypto.scryptSync(password,salt,64).toString('hex'); db.admin={username,salt,hash,createdAt:new Date().toISOString()}; db.setupKey=null;
+      db.admin={username,passwordHash:await hashPassword(password),createdAt:new Date().toISOString()}; db.setupKey=null;
       const token=crypto.randomBytes(32).toString('hex'); db.sessions[tokenHash(token)]=Date.now()+1000*60*60*12; await saveDb();
       return send(res,201,{ok:true,username},{'Set-Cookie':adminCookie(token)});
     }
     if (req.method==='POST'&&route==='/api/admin/login') {
-      const b=await readJson(req); const username=clean(b.username,50),password=String(b.password||''); const now=Date.now();
-      const recent=(loginAttempts.get(req.socket.remoteAddress)||[]).filter(t=>now-t<15*60*1000); if (recent.length>=8) return send(res,429,{error:'Too many attempts. Wait 15 minutes and try again.'});
-      if (!db.admin || username!==db.admin.username || !safeEqual(crypto.scryptSync(password,db.admin.salt,64).toString('hex'),db.admin.hash)) { recent.push(now);loginAttempts.set(req.socket.remoteAddress,recent);return send(res,401,{error:'The username or password is incorrect.'}); }
-      loginAttempts.delete(req.socket.remoteAddress); const token=crypto.randomBytes(32).toString('hex');db.sessions[tokenHash(token)]=Date.now()+1000*60*60*12;await saveDb();
+      const b=await readJson(req); const username=clean(b.username,50),password=String(b.password||'');
+      if(!enforceRateLimit(req,res,`owner-account-login:${username.toLowerCase()}`,5,15*60*1000,route))return;
+      if(password.length<1||password.length>200)return send(res,400,{error:'The username or password is incorrect.'});
+      const verified=db.admin&&username===db.admin.username?await verifyPassword(db.admin,password):{valid:false};
+      if (!verified.valid) { securityEvent(req,'owner_login_failed');return send(res,401,{error:'The username or password is incorrect.'}); }
+      if(verified.rehash){db.admin.passwordHash=verified.rehash;delete db.admin.salt;delete db.admin.hash;}
+      const token=crypto.randomBytes(32).toString('hex');db.sessions[tokenHash(token)]=Date.now()+1000*60*60*12;await saveDb();securityEvent(req,'owner_login_succeeded');
       return send(res,200,{ok:true,username},{'Set-Cookie':adminCookie(token)});
     }
-    if (req.method==='POST'&&route==='/api/admin/logout') { const token=sessionFrom(req);delete db.sessions[token];await saveDb();return send(res,200,{ok:true},{'Set-Cookie':adminCookie('',0)}); }
+    if (req.method==='POST'&&route==='/api/admin/logout') { const token=sessionFrom(req);delete db.sessions[token];await saveDb();securityEvent(req,'owner_logout');return send(res,200,{ok:true},{'Set-Cookie':adminCookie('',0)}); }
     if (req.method==='GET'&&route==='/api/admin/me') { if(!requireAdmin(req,res))return;return send(res,200,{username:db.admin.username}); }
     if (!requireAdmin(req,res)) return;
+    if(['POST','PUT','PATCH','DELETE'].includes(req.method))securityEvent(req,'owner_mutation',{route,method:req.method});
     if (req.method==='DELETE'&&route==='/api/admin/demo-data') { const ordersBefore=db.orders.length,reservationsBefore=db.reservations.length;db.orders=db.orders.filter(item=>!item.isDemo);db.reservations=db.reservations.filter(item=>!item.isDemo);await saveDb();return send(res,200,{ok:true,removedOrders:ordersBefore-db.orders.length,removedEnquiries:reservationsBefore-db.reservations.length}); }
     if (req.method==='GET'&&route==='/api/admin/data') return send(res,200,{products:db.products,collections:db.collections,orders:db.orders,reservations:db.reservations,customers:adminCustomerRows(),settings:db.settings,customerCount:db.customers.length,username:db.admin.username});
     if (req.method==='PUT'&&route==='/api/admin/settings') { const b=await readJson(req);const cur=String(b.currency||'').toUpperCase();if(!allowedCurrencies.has(cur))return send(res,400,{error:'Choose GBP, EUR or USD.'});const ship=b.shippingCents===''||b.shippingCents===null?null:Number(b.shippingCents);if(ship!==null&&(!Number.isInteger(ship)||ship<0||ship>10000000))return send(res,400,{error:'Enter a valid delivery fee, or leave it blank until decided.'});db.settings.currency=cur;for (const p of db.products) p.currency=cur;db.settings.shippingCents=ship;db.settings.automaticTaxEnabled=!!b.automaticTaxEnabled;db.settings.vatRegistered=!!b.vatRegistered;await saveDb();return send(res,200,{ok:true}); }
@@ -534,7 +689,6 @@ async function handleApi(req,res,url) {
   }
   return send(res,404,{error:'Not found.'});
 }
-const loginAttempts=new Map();
 function mime(file) {
   const ext=path.extname(file).toLowerCase();return ({'.html':'text/html; charset=utf-8','.css':'text/css; charset=utf-8','.js':'text/javascript; charset=utf-8','.json':'application/json; charset=utf-8','.png':'image/png','.jpg':'image/jpeg','.jpeg':'image/jpeg','.svg':'image/svg+xml','.webp':'image/webp'})[ext]||'application/octet-stream';
 }
@@ -543,23 +697,28 @@ async function staticFile(req,res,url) {
   try { pathname=decodeURIComponent(url.pathname); }
   catch { return text(res,400,'Bad request.'); }
   if(pathname==='/')pathname='/index.html';
-  if(pathname.startsWith('/data/')||pathname==='/server.js'||pathname==='/package.json'||pathname.startsWith('/.')) return text(res,404,'Not found.');
+  const normalizedPath=pathname.toLowerCase();
+  const blockedFiles=new Set(['/server.js','/postgres-store.js','/package.json','/package-lock.json','/yarn.lock','/pnpm-lock.yaml','/render.yaml','/readme.md']);
+  if(normalizedPath.startsWith('/data/')||normalizedPath.startsWith('/db/')||normalizedPath.startsWith('/node_modules/')||normalizedPath.startsWith('/.')||blockedFiles.has(normalizedPath))return text(res,404,'Not found.');
   const isUpload=pathname.startsWith('/uploads/');
   const base=isUpload?UPLOAD_DIR:ROOT;
   const relative=isUpload?pathname.slice('/uploads/'.length):pathname.slice(1);
   const full=path.resolve(base,relative);
   if(full!==base&&!full.startsWith(base+path.sep))return text(res,403,'Forbidden.');
+  if(isUpload&&path.basename(full).startsWith('.'))return text(res,404,'Not found.');
   let stat;
   try { stat=await fs.stat(full); }
   catch(err) {
-    if(err.code!=='ENOENT'&&err.code!=='ENOTDIR')console.error(`Static file lookup failed for ${pathname}:`,err);
+    if(err.code!=='ENOENT'&&err.code!=='ENOTDIR')console.error(JSON.stringify({event:'static_lookup_error',code:err.code||'unknown'}));
     return text(res,404,'Not found.');
   }
   if(!stat.isFile())return text(res,404,'Not found.');
+  try { const [realBase,realFile]=await Promise.all([fs.realpath(base),fs.realpath(full)]);if(realFile!==realBase&&!realFile.startsWith(realBase+path.sep))return text(res,403,'Forbidden.'); }
+  catch { return text(res,404,'Not found.'); }
   res.writeHead(200,{'Content-Type':mime(full),'Cache-Control':full.includes(`${path.sep}uploads${path.sep}`)?'public, max-age=31536000, immutable':'no-cache'});
   const stream=fsSync.createReadStream(full);
   stream.on('error',err=>{
-    console.error(`Static file read failed for ${pathname}:`,err);
+    console.error(JSON.stringify({event:'static_stream_error',code:err.code||'unknown'}));
     if(!res.headersSent)text(res,404,'Not found.');
     else res.destroy(err);
   });
@@ -567,13 +726,18 @@ async function staticFile(req,res,url) {
 }
 async function main(req,res) {
   try {
+    applySecurityHeaders(req,res);
     const url=new URL(req.url,`http://${req.headers.host||'localhost'}`);
     if(url.pathname.startsWith('/api/'))return await handleApi(req,res,url);
     if(url.pathname.startsWith('/uploads/'))return await staticFile(req,res,url);
     return await staticFile(req,res,url);
-  } catch(err) { console.error(err);if(!res.headersSent)send(res,err.status||500,{error:err.message||'Something went wrong. Please try again.'});else res.end(); }
+  } catch(err) {
+    const requestId=String(req.headers['rndr-id']||crypto.randomUUID()).slice(0,100);
+    console.error(JSON.stringify({event:'request_error',requestId,code:err.code||'application_error',status:err.status||500}));
+    if(!res.headersSent){const status=err.status||500;send(res,status,{error:status<500?err.message:'Something went wrong. Please try again.'});}else res.end();
+  }
 }
 loadDb().then(()=>{
   const server=http.createServer(main);
   server.listen(PORT,HOST,()=>console.log(`BIREQDAR&CO. V1 listening on ${HOST}:${PORT}`));
-}).catch(err=>{console.error('Could not start store:',err);process.exit(1)});
+}).catch(err=>{console.error(JSON.stringify({event:'startup_failed',code:err.code||'startup_error'}));process.exit(1)});

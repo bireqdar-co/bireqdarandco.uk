@@ -12,6 +12,8 @@ services:
       mountPath: /var/data
       sizeGB: 1
     envVars:
+      - key: NODE_ENV
+        value: production
       - key: HOST
         value: 0.0.0.0
       - key: DATA_DIR
@@ -24,3 +26,7 @@ services:
         value: "false"
       - key: ADMIN_SETUP_KEY
         generateValue: true
+      - key: RESEND_API_KEY
+        sync: false
+      - key: RESEND_FROM_EMAIL
+        sync: false

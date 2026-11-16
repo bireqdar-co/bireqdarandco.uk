@@ -16,7 +16,7 @@ class PostgresStore {
       idleTimeoutMillis: 30000,
       connectionTimeoutMillis: 8000
     });
-    this.pool.on('error', error => console.error('PostgreSQL pool error:', error.message));
+    this.pool.on('error', error => console.error(JSON.stringify({event:'database_pool_error',code:error.code||'database_error'})));
     this.schema = path.join(__dirname, 'db', 'schema.sql');
   }
 

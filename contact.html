@@ -35,4 +35,4 @@
     </section>
   </div>
   <p class="footer-copyright">© 2026 BIREQDAR&amp;CO. <span aria-hidden="true">·</span> London <span aria-hidden="true">·</span> All rights reserved.</p>
-</footer><script src="script.js"></script><script>const reference=new URLSearchParams(location.search).get('reference');if(reference)document.querySelector('#reference').value=reference;document.querySelector('#enquiry-form').addEventListener('submit',async e=>{e.preventDefault();const f=e.currentTarget,m=document.querySelector('#form-message');m.textContent='Sending enquiry…';try{const r=await fetch('/api/reservations',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(Object.fromEntries(new FormData(f)))});const d=await r.json();if(!r.ok)throw new Error(d.error);m.textContent='Thank you. Your enquiry is recorded as '+d.reference+'. Our team can follow up by email.';f.reset()}catch(err){m.textContent=err.message}})</script></body></html>
+</footer><script src="script.js"></script><script src="contact.js"></script></body></html>

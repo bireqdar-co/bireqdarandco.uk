@@ -1,4 +1,11 @@
-.env
+.env*
+!.env.example
+*.pem
+*.key
+*.p12
+*.backup
+*.dump
+*.log
 /data/
 /uploads/
 *.tmp
