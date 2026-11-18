@@ -454,7 +454,10 @@ function customerSession(req) {
   if(!token||!session||session.expiresAt<Date.now()){if(token&&session){delete db.customerSessions[token];saveDb()}return null;}
   return {token,customer:db.customers.find(c=>c.id===session.customerId)||null};
 }
-function publicCustomer(customer) { return {id:customer.id,title:customer.title||'',name:customer.name,email:customer.email}; }
+function publicCustomer(customer) {
+  const parts=String(customer.name||'').trim().split(/\s+/).filter(Boolean);
+  return {id:customer.id,title:customer.title||'',firstName:customer.firstName||parts.shift()||'',lastName:customer.lastName||(parts.join(' ')),name:customer.name,email:customer.email};
+}
 function adminCustomerRows() {
   const customers=new Map();
   const rowFor=(email,initial={})=>{
@@ -644,10 +647,11 @@ async function handleApi(req,res,url) {
     }
     if(req.method==='POST'&&route==='/api/account/profile'){
       const session=customerSession(req);if(!session?.customer)return send(res,401,{error:'Sign in to update your client details.'});
-      const b=await readJson(req),title=clean(b.title,30),name=clean(b.name,100).replace(/\s+/g,' ');
+      const b=await readJson(req),title=clean(b.title,30),firstName=clean(b.firstName,60).replace(/\s+/g,' '),lastName=clean(b.lastName,60).replace(/\s+/g,' '),name=(firstName||lastName)?`${firstName} ${lastName}`.trim():clean(b.name,120).replace(/\s+/g,' ');
       if(!allowedCustomerTitles.has(title))return send(res,400,{error:'Choose a title from the list, or leave it blank.'});
+      if((firstName||lastName)&&(!validCustomerName(firstName)||!validCustomerName(lastName)))return send(res,400,{error:'Enter a valid first and last name using letters and normal punctuation.'});
       if(!validCustomerName(name))return send(res,400,{error:'Enter a valid full name using letters and normal punctuation.'});
-      session.customer.title=title;session.customer.name=name;await saveDb();return send(res,200,{ok:true,customer:publicCustomer(session.customer)});
+      session.customer.title=title;session.customer.firstName=firstName||undefined;session.customer.lastName=lastName||undefined;session.customer.name=name;await saveDb();return send(res,200,{ok:true,customer:publicCustomer(session.customer)});
     }
     if(req.method==='POST'&&route==='/api/account/wishlist'){
       const session=customerSession(req);if(!session?.customer)return send(res,401,{error:'Sign in to save favourites to your wishlist.'});
@@ -658,15 +662,18 @@ async function handleApi(req,res,url) {
       await saveDb();return send(res,200,{ok:true,wishlist:session.customer.wishlist});
     }
     if(req.method==='POST'&&route==='/api/account/register'){
-      const b=await readJson(req),name=clean(b.name,100),title=clean(b.title,30),email=clean(b.email,254).toLowerCase(),password=String(b.password||'');
+      const b=await readJson(req),firstName=clean(b.firstName,60).replace(/\s+/g,' '),lastName=clean(b.lastName,60).replace(/\s+/g,' '),name=`${firstName} ${lastName}`.trim(),title=clean(b.title,30),email=clean(b.email,254).trim().toLowerCase(),confirmEmail=clean(b.confirmEmail,254).trim().toLowerCase(),password=String(b.password||''),confirmPassword=String(b.confirmPassword||''),ageConfirmed=b.ageConfirmed===true||b.ageConfirmed==='true'||b.ageConfirmed==='on';
       if(!enforceRateLimit(req,res,`account-register:${email}`,5,15*60*1000,route))return;
       if(!allowedCustomerTitles.has(title))return send(res,400,{error:'Choose a title from the list, or leave it blank.'});
-      if(name.length<2||!validEmail(email)||password.length<12||password.length>200)return send(res,400,{error:'Enter your name, a valid email and a password of at least 12 characters.'});
+      if(!validCustomerName(firstName)||!validCustomerName(lastName)||!validEmail(email)||password.length<12||password.length>200)return send(res,400,{error:'Enter a valid first and last name, a valid email and a password of at least 12 characters.'});
+      if(email!==confirmEmail)return send(res,400,{error:'The email addresses do not match.'});
+      if(password!==confirmPassword)return send(res,400,{error:'The passwords do not match.'});
+      if(!ageConfirmed)return send(res,400,{error:'You must confirm that you are 18 or older to create an account.'});
       if(!process.env.RESEND_API_KEY||!process.env.RESEND_FROM_EMAIL)return send(res,503,{error:'Account verification email is temporarily unavailable. Please try again later.'});
       if(process.env.NODE_ENV==='production'&&!APP_URL)return send(res,503,{error:'Secure account email links are not configured. Please contact our team.'});
       if(db.customers.some(c=>c.email===email))return send(res,409,{error:'An account with this email already exists. Please sign in.'});
       const verificationToken=crypto.randomBytes(32).toString('base64url');
-      const customer={id:id(),title,name,email,passwordHash:await hashPassword(password),emailVerificationTokenHash:tokenHash(verificationToken),emailVerificationExpiresAt:Date.now()+24*60*60*1000,createdAt:new Date().toISOString()};
+      const customer={id:id(),title,firstName,lastName,name,email,passwordHash:await hashPassword(password),ageConfirmedAt:new Date().toISOString(),emailVerificationTokenHash:tokenHash(verificationToken),emailVerificationExpiresAt:Date.now()+24*60*60*1000,createdAt:new Date().toISOString()};
       db.customers.push(customer);await saveDb();
       const verificationUrl=new URL('/account.html',APP_URL||`http://${req.headers.host||'localhost'}`);verificationUrl.searchParams.set('verify',verificationToken);
       const sent=await sendAccountVerificationEmail(email,verificationUrl.toString(),`account-verification/${customer.id}/${tokenHash(verificationToken)}`);
@@ -724,8 +731,9 @@ async function handleApi(req,res,url) {
       }
       let customer=db.customers.find(entry=>entry.email===email);
       if(customer?.googleSub&&customer.googleSub!==googleSub)return send(res,409,{error:'This email is connected to a different Google account. Please contact us.'});
-      if(!customer){customer={id:id(),name,email,googleSub,createdAt:new Date().toISOString()};db.customers.push(customer);securityEvent(req,'customer_account_created',{provider:'google'});}
-      else {customer.googleSub=googleSub;if(!customer.name)customer.name=name;}
+      const googleFirstName=clean(claims?.given_name,60),googleLastName=clean(claims?.family_name,60);
+      if(!customer){customer={id:id(),name,firstName:googleFirstName,lastName:googleLastName, email,googleSub,createdAt:new Date().toISOString()};db.customers.push(customer);securityEvent(req,'customer_account_created',{provider:'google'});}
+      else {customer.googleSub=googleSub;if(!customer.name)customer.name=name;if(!customer.firstName)customer.firstName=googleFirstName;if(!customer.lastName)customer.lastName=googleLastName;}
       customer.emailVerifiedAt=customer.emailVerifiedAt||new Date().toISOString();delete customer.emailVerificationTokenHash;delete customer.emailVerificationExpiresAt;
       const token=issueCustomerSession(customer);await saveDb();securityEvent(req,'customer_login_succeeded',{provider:'google'});
       return send(res,200,{authenticated:true,customer:publicCustomer(customer)},{'Set-Cookie':customerCookie(token)});

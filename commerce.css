@@ -433,3 +433,11 @@ button,a,input,select,textarea{-webkit-tap-highlight-color:transparent;touch-act
 .commerce-page .account-card.account-authenticated>.eyebrow,.commerce-page .account-card.account-authenticated>.account-title,.commerce-page .account-card.account-authenticated>.account-copy,.commerce-page .account-card.account-authenticated>.account-footnote,.commerce-page .account-card.account-authenticated>.account-help{display:none}
 .account-card .account-loading{min-height:30px;color:#667166;font:15px/1.5 "Times New Roman",Times,serif}
 @media(max-width:760px){.commerce-page .account-section-menu{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:8px!important}}
+
+/* Keep the account name fields aligned on wide screens and comfortable on mobile. */
+.account-card .account-name-grid,.account-profile-form .account-name-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.account-card .account-name-grid label,.account-profile-form .account-name-grid label{min-width:0}
+.account-card .account-name-grid input,.account-profile-form .account-name-grid input{width:100%;min-width:0}
+.account-card .account-form .account-age-confirm{display:flex;grid-template-columns:none;align-items:flex-start;gap:11px;text-transform:none;letter-spacing:0;font:14px/1.5 "Times New Roman",Times,serif;color:#59675a}
+.account-age-confirm input{flex:0 0 auto;width:18px;height:18px;margin:1px 0 0;accent-color:#9b7c4f}
+@media(max-width:520px){.account-card .account-name-grid,.account-profile-form .account-name-grid{grid-template-columns:1fr;gap:15px}}
