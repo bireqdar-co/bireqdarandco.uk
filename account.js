@@ -5,6 +5,16 @@
  const titleOptions=['Mr','Mrs','Miss','Ms','Mx','Dr','Prof','Other'];
  const money=(c,cur='GBP')=>new Intl.NumberFormat(undefined,{style:'currency',currency:cur}).format(c/100);
  const latestAdultBirthDate=()=>{const date=new Date();date.setUTCFullYear(date.getUTCFullYear()-18);return date.toISOString().slice(0,10)};
+ function bindBirthDateMask(input){
+  input.removeAttribute('max');input.maxLength=10;
+  input.addEventListener('input',()=>{
+   const caret=input.selectionStart??input.value.length,digitsBefore=input.value.slice(0,caret).replace(/\D/g,'').length,digits=input.value.replace(/\D/g,'').slice(0,8);
+   let formatted=digits.slice(0,2);if(digits.length>2)formatted+=`/${digits.slice(2,4)}`;if(digits.length>4)formatted+=`/${digits.slice(4)}`;
+   input.value=formatted;
+   let nextCaret=digitsBefore;if(digitsBefore>2)nextCaret++;if(digitsBefore>4)nextCaret++;
+   input.setSelectionRange(Math.min(nextCaret,formatted.length),Math.min(nextCaret,formatted.length));
+  });
+ }
  const orderStatusLabel=status=>({payment_pending:'Awaiting payment',paid:'Confirmed',processing:'Preparing',shipped:'Shipped',delivered:'Delivered',fulfilled:'Completed',cancelled:'Cancelled'})[status]||String(status||'Being updated').replaceAll('_',' ');
  function orderProgress(status){if(status==='cancelled')return '<p class="account-order-cancelled">This order was cancelled. Contact our team if you need help.</p>';const steps=['paid','processing','shipped',status==='fulfilled'?'fulfilled':'delivered'],index=({paid:0,processing:1,shipped:2,delivered:3,fulfilled:3})[status]??-1;return `<ol class="account-order-progress" aria-label="Order progress">${steps.map((step,i)=>`<li class="${i<index?'complete':i===index?'current':'upcoming'}" ${i===index?'aria-current="step"':''}><span>${i<index?'✓':i+1}</span><small>${orderStatusLabel(step)}</small></li>`).join('')}</ol>`}
  async function api(url,options={}){const r=await fetch(url,{...options,headers:{'Content-Type':'application/json',...(options.headers||{})}}),d=await r.json();if(!r.ok)throw Object.assign(new Error(d.error||'Please try again.'),d);return d}
@@ -19,7 +29,7 @@
   const form=root.querySelector('#account-form');
   if(mode==='register'){
    const confirmPassword=form.elements.confirmPassword,primaryPassword=form.elements.password;
-   form.elements.dateOfBirth.max=latestAdultBirthDate();
+   bindBirthDateMask(form.elements.dateOfBirth);
    const checkPassword=()=>{const matches=confirmPassword.value===primaryPassword.value;confirmPassword.setCustomValidity(confirmPassword.value&&!matches?'Passwords do not match.':'');const note=root.querySelector('[data-password-match]');if(note)note.textContent=!confirmPassword.value?'Re-enter your password to confirm it.':matches?'Passwords match.':'Passwords do not match.'};
    primaryPassword.addEventListener('input',checkPassword);confirmPassword.addEventListener('input',checkPassword);
   }
