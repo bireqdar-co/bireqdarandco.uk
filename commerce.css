@@ -461,3 +461,5 @@ button,a,input,select,textarea{-webkit-tap-highlight-color:transparent;touch-act
 .password-visibility-toggle{position:absolute;right:14px;cursor:pointer;color:#715a37;font:18px Arial,sans-serif}
 .account-card .account-form label.field-invalid input,.account-card .account-form label.field-invalid select{border-color:#670626;box-shadow:0 0 0 2px rgba(103,6,38,.12)}
 @media(max-width:520px){.account-card .account-form .account-phone-grid{grid-template-columns:1fr}}
+.password-visibility-toggle{display:grid;place-items:center;width:30px;height:30px;color:#715a37}
+.password-visibility-toggle svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}

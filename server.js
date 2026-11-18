@@ -110,7 +110,7 @@ async function sendCustomerEmail({to,subject,text,html,idempotencyKey,eventName}
       signal:AbortSignal.timeout(10000)
     });
     const payload=await response.json().catch(()=>({}));
-    if(!response.ok){console.error(JSON.stringify({event:`${eventName}_failed`,status:response.status}));return {sent:false,configured:true};}
+    if(!response.ok){console.error(JSON.stringify({event:`${eventName}_failed`,status:response.status,providerCode:clean(payload.code,80),providerMessage:clean(payload.message,180)}));return {sent:false,configured:true};}
     return {sent:true,configured:true,emailId:clean(payload.id,120)};
   } catch { console.error(JSON.stringify({event:`${eventName}_failed`,reason:'provider_unavailable'}));return {sent:false,configured:true}; }
 }
