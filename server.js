@@ -44,10 +44,11 @@ if(!Number.isInteger(PORT)||PORT<1||PORT>65535)throw new Error('PORT must be an 
 if(process.env.NODE_ENV==='production'&&!process.env.DATABASE_URL)throw new Error('DATABASE_URL is required when NODE_ENV=production.');
 if(process.env.NODE_ENV==='production'&&!process.env.ADMIN_SETUP_KEY)throw new Error('ADMIN_SETUP_KEY is required when NODE_ENV=production.');
 if(APP_URL){try{const parsed=new URL(APP_URL);if(!['https:','http:'].includes(parsed.protocol))throw new Error();}catch{throw new Error('APP_URL must be a valid HTTP or HTTPS URL.');}}
+if(process.env.NODE_ENV==='production'&&process.env.RESEND_API_KEY&&APP_URL&&!APP_URL.startsWith('https://'))throw new Error('APP_URL must use HTTPS for account email links in production.');
 if(process.env.STRIPE_SECRET_KEY&&!stripeKeyMode())throw new Error('STRIPE_SECRET_KEY must be a Stripe test or live secret/restricted key.');
 if(process.env.ADMIN_SETUP_KEY&&process.env.ADMIN_SETUP_KEY.length<32)throw new Error('ADMIN_SETUP_KEY must contain at least 32 characters.');
 if(process.env.LIVE_CHECKOUT_ENABLED!==undefined&&!['true','false'].includes(process.env.LIVE_CHECKOUT_ENABLED))throw new Error('LIVE_CHECKOUT_ENABLED must be true or false.');
-if(Boolean(process.env.RESEND_API_KEY)!==Boolean(process.env.RESEND_FROM_EMAIL))throw new Error('Set both RESEND_API_KEY and RESEND_FROM_EMAIL to enable password reset email.');
+if(Boolean(process.env.RESEND_API_KEY)!==Boolean(process.env.RESEND_FROM_EMAIL))throw new Error('Set both RESEND_API_KEY and RESEND_FROM_EMAIL to enable account email.');
 if(process.env.RESEND_FROM_EMAIL&&!/^[^\s<>@]+@[^\s<>@]+\.[^\s<>@]+$/.test(process.env.RESEND_FROM_EMAIL))throw new Error('RESEND_FROM_EMAIL must be a single email address on a verified sending domain.');
 
 const id = () => crypto.randomUUID();
@@ -86,6 +87,13 @@ async function sendPasswordResetEmail(to,resetUrl) {
     if(!response.ok){console.error(JSON.stringify({event:'password_reset_email_failed',status:response.status}));return false;}
     return true;
   } catch { console.error(JSON.stringify({event:'password_reset_email_failed',reason:'provider_unavailable'}));return false; }
+}
+async function sendAccountVerificationEmail(to,verificationUrl,idempotencyKey) {
+  if(!process.env.RESEND_API_KEY||!process.env.RESEND_FROM_EMAIL)return false;
+  const text=`Please confirm your BIREQDAR & CO. account by opening this link: ${verificationUrl}\n\nThis link expires in 24 hours and can only be used once. If you did not create this account, you can ignore this email.`;
+  const html=`<div style="max-width:600px;margin:auto;padding:32px;background:#062318;color:#ede8da;font:16px/1.6 Georgia,serif"><p style="color:#d4af78;letter-spacing:.18em">BIREQDAR &amp; CO.</p><h1 style="font-weight:400">Confirm your <em style="color:#d4af78">account.</em></h1><p>Please confirm your email address to complete your client account registration.</p><p><a style="display:inline-block;padding:14px 22px;background:#d4af78;color:#10271d;text-decoration:none" href="${verificationUrl}">Confirm email address</a></p><p>This link expires in 24 hours and can only be used once. If you did not create this account, you can ignore this email.</p></div>`;
+  const result=await sendCustomerEmail({to,subject:'Confirm your BIREQDAR & CO. account',text,html,idempotencyKey,eventName:'account_verification_email'});
+  return result.sent;
 }
 function escapeHtml(value) {
   return String(value ?? '').replace(/[&<>"']/g,character=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[character]));
@@ -367,6 +375,7 @@ function ratePolicy(method,route) {
   if(method==='POST'&&route==='/api/admin/setup')return {bucket:'owner-setup',limit:3,window:60*60*1000};
   if(method==='POST'&&route==='/api/admin/login')return {bucket:'owner-login',limit:8,window:15*60*1000};
   if(method==='POST'&&['/api/account/login','/api/account/register','/api/account/google'].includes(route))return {bucket:'customer-auth',limit:8,window:15*60*1000};
+  if(method==='POST'&&['/api/account/verify-email','/api/account/resend-verification'].includes(route))return {bucket:'account-verification',limit:5,window:60*60*1000};
   if(method==='POST'&&route==='/api/account/address')return {bucket:'account-address',limit:20,window:60*60*1000};
   if(method==='POST'&&route==='/api/account/profile')return {bucket:'account-profile',limit:20,window:60*60*1000};
   if(method==='POST'&&route==='/api/account/wishlist')return {bucket:'account-wishlist',limit:60,window:60*60*1000};
@@ -653,16 +662,50 @@ async function handleApi(req,res,url) {
       if(!enforceRateLimit(req,res,`account-register:${email}`,5,15*60*1000,route))return;
       if(!allowedCustomerTitles.has(title))return send(res,400,{error:'Choose a title from the list, or leave it blank.'});
       if(name.length<2||!validEmail(email)||password.length<12||password.length>200)return send(res,400,{error:'Enter your name, a valid email and a password of at least 12 characters.'});
+      if(!process.env.RESEND_API_KEY||!process.env.RESEND_FROM_EMAIL)return send(res,503,{error:'Account verification email is temporarily unavailable. Please try again later.'});
+      if(process.env.NODE_ENV==='production'&&!APP_URL)return send(res,503,{error:'Secure account email links are not configured. Please contact our team.'});
       if(db.customers.some(c=>c.email===email))return send(res,409,{error:'An account with this email already exists. Please sign in.'});
-      const customer={id:id(),title,name,email,passwordHash:await hashPassword(password),createdAt:new Date().toISOString()};db.customers.push(customer);const token=issueCustomerSession(customer);await saveDb();securityEvent(req,'customer_account_created');return send(res,201,{authenticated:true,customer:publicCustomer(customer)},{'Set-Cookie':customerCookie(token)});
+      const verificationToken=crypto.randomBytes(32).toString('base64url');
+      const customer={id:id(),title,name,email,passwordHash:await hashPassword(password),emailVerificationTokenHash:tokenHash(verificationToken),emailVerificationExpiresAt:Date.now()+24*60*60*1000,createdAt:new Date().toISOString()};
+      db.customers.push(customer);await saveDb();
+      const verificationUrl=new URL('/account.html',APP_URL||`http://${req.headers.host||'localhost'}`);verificationUrl.searchParams.set('verify',verificationToken);
+      const sent=await sendAccountVerificationEmail(email,verificationUrl.toString(),`account-verification/${customer.id}/${tokenHash(verificationToken)}`);
+      securityEvent(req,sent?'customer_account_created':'customer_account_verification_delivery_failed');
+      return send(res,sent?201:503,sent?{verificationRequired:true,message:'Check your email to confirm your account. The link is valid for 24 hours.'}:{error:'We could not send the confirmation email. Use “Resend confirmation email” below or try again shortly.',verificationRequired:true});
     }
     if(req.method==='POST'&&route==='/api/account/login'){
       const b=await readJson(req),email=clean(b.email,254).toLowerCase(),password=String(b.password||'');
       if(!enforceRateLimit(req,res,`account-login:${email}`,5,15*60*1000,route))return;
       if(password.length<1||password.length>200)return send(res,400,{error:'Email or password is incorrect.'});
       const customer=db.customers.find(c=>c.email===email),verified=customer?await verifyPassword(customer,password):{valid:false};if(!verified.valid){securityEvent(req,'customer_login_failed');return send(res,401,{error:'Email or password is incorrect.'});}
+      if(customer.emailVerificationTokenHash&&!customer.emailVerifiedAt)return send(res,403,{error:'Please confirm your email address before signing in.',verificationRequired:true});
+      // Accounts created before email verification was introduced remain accessible.
+      if(!customer.emailVerifiedAt&&!customer.emailVerificationTokenHash)customer.emailVerifiedAt=customer.createdAt||new Date().toISOString();
       if(verified.rehash){customer.passwordHash=verified.rehash;delete customer.salt;delete customer.hash;}
       const token=issueCustomerSession(customer);await saveDb();securityEvent(req,'customer_login_succeeded');return send(res,200,{authenticated:true,customer:publicCustomer(customer)},{'Set-Cookie':customerCookie(token)});
+    }
+    if(req.method==='POST'&&route==='/api/account/verify-email'){
+      const b=await readJson(req),verificationToken=String(b.token||'');
+      if(!/^[A-Za-z0-9_-]{40,60}$/.test(verificationToken))return send(res,400,{error:'This confirmation link is invalid or expired. Request a new one.'});
+      const customer=db.customers.find(c=>c.emailVerificationTokenHash===tokenHash(verificationToken)&&Number(c.emailVerificationExpiresAt)>Date.now());
+      if(!customer)return send(res,400,{error:'This confirmation link is invalid or expired. Request a new one.'});
+      customer.emailVerifiedAt=new Date().toISOString();delete customer.emailVerificationTokenHash;delete customer.emailVerificationExpiresAt;
+      await saveDb();securityEvent(req,'customer_email_verified');
+      return send(res,200,{ok:true,message:'Your email is confirmed. You can now sign in.'});
+    }
+    if(req.method==='POST'&&route==='/api/account/resend-verification'){
+      const b=await readJson(req),email=clean(b.email,254).toLowerCase();
+      if(!validEmail(email))return send(res,400,{error:'Enter a valid email address.'});
+      if(!enforceRateLimit(req,res,`account-verification-resend:${email}`,3,60*60*1000,route))return;
+      const customer=db.customers.find(c=>c.email===email);
+      if(customer&&!customer.emailVerifiedAt&&process.env.RESEND_API_KEY&&process.env.RESEND_FROM_EMAIL){
+        if(process.env.NODE_ENV==='production'&&!APP_URL)return send(res,503,{error:'Secure account email links are not configured. Please contact our team.'});
+        const verificationToken=crypto.randomBytes(32).toString('base64url');customer.emailVerificationTokenHash=tokenHash(verificationToken);customer.emailVerificationExpiresAt=Date.now()+24*60*60*1000;await saveDb();
+        const verificationUrl=new URL('/account.html',APP_URL||`http://${req.headers.host||'localhost'}`);verificationUrl.searchParams.set('verify',verificationToken);
+        if(await sendAccountVerificationEmail(email,verificationUrl.toString(),`account-verification/${customer.id}/${tokenHash(verificationToken)}`))securityEvent(req,'customer_verification_email_resent');
+        else securityEvent(req,'customer_account_verification_delivery_failed');
+      }
+      return send(res,200,{ok:true,message:'If an unconfirmed account exists for that email, a confirmation link has been sent.'});
     }
     if(req.method==='POST'&&route==='/api/account/google'){
       if(!googleAuthClient)return send(res,503,{error:'Google sign-in is not configured yet.'});
@@ -683,6 +726,7 @@ async function handleApi(req,res,url) {
       if(customer?.googleSub&&customer.googleSub!==googleSub)return send(res,409,{error:'This email is connected to a different Google account. Please contact us.'});
       if(!customer){customer={id:id(),name,email,googleSub,createdAt:new Date().toISOString()};db.customers.push(customer);securityEvent(req,'customer_account_created',{provider:'google'});}
       else {customer.googleSub=googleSub;if(!customer.name)customer.name=name;}
+      customer.emailVerifiedAt=customer.emailVerifiedAt||new Date().toISOString();delete customer.emailVerificationTokenHash;delete customer.emailVerificationExpiresAt;
       const token=issueCustomerSession(customer);await saveDb();securityEvent(req,'customer_login_succeeded',{provider:'google'});
       return send(res,200,{authenticated:true,customer:publicCustomer(customer)},{'Set-Cookie':customerCookie(token)});
     }
