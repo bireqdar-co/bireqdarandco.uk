@@ -464,7 +464,7 @@ function customerSession(req) {
 }
 function publicCustomer(customer) {
   const parts=String(customer.name||'').trim().split(/\s+/).filter(Boolean);
-  return {title:customer.title||'',firstName:customer.firstName||parts.shift()||'',lastName:customer.lastName||(parts.join(' ')),name:customer.name,email:customer.email,dateOfBirth:customer.dateOfBirth||''};
+  return {title:customer.title||'',firstName:customer.firstName||parts.shift()||'',lastName:customer.lastName||(parts.join(' ')),name:customer.name,email:customer.email,dateOfBirth:customer.dateOfBirth||'',phone:customer.phone||''};
 }
 function adminCustomerRows() {
   const customers=new Map();
@@ -655,12 +655,13 @@ async function handleApi(req,res,url) {
     }
     if(req.method==='POST'&&route==='/api/account/profile'){
       const session=customerSession(req);if(!session?.customer)return send(res,401,{error:'Sign in to update your client details.'});
-      const b=await readJson(req),title=clean(b.title,30),firstName=clean(b.firstName,60).replace(/\s+/g,' '),lastName=clean(b.lastName,60).replace(/\s+/g,' '),dateOfBirth=clean(b.dateOfBirth,10),name=(firstName||lastName)?`${firstName} ${lastName}`.trim():clean(b.name,120).replace(/\s+/g,' ');
+      const b=await readJson(req),title=clean(b.title,30),firstName=clean(b.firstName,60).replace(/\s+/g,' '),lastName=clean(b.lastName,60).replace(/\s+/g,' '),dateOfBirth=clean(b.dateOfBirth,10),phone=clean(b.phone,20),name=(firstName||lastName)?`${firstName} ${lastName}`.trim():clean(b.name,120).replace(/\s+/g,' ');
       if(!allowedCustomerTitles.has(title))return send(res,400,{error:'Choose a title from the list, or leave it blank.'});
       if((firstName||lastName)&&(!validCustomerName(firstName)||!validCustomerName(lastName)))return send(res,400,{error:'Enter a valid first and last name using letters and normal punctuation.'});
       if(!validCustomerName(name))return send(res,400,{error:'Enter a valid full name using letters and normal punctuation.'});
       if(!validAdultDateOfBirth(dateOfBirth))return send(res,400,{error:'Enter a valid date of birth confirming you are at least 18.'});
-      session.customer.title=title;session.customer.firstName=firstName||undefined;session.customer.lastName=lastName||undefined;session.customer.name=name;session.customer.dateOfBirth=dateOfBirth;await saveDb();return send(res,200,{ok:true,customer:publicCustomer(session.customer)});
+      if(!/^\+[1-9]\d{7,14}$/.test(phone))return send(res,400,{error:'Enter a valid phone number with its country calling code, for example +447700900123.'});
+      session.customer.title=title;session.customer.firstName=firstName||undefined;session.customer.lastName=lastName||undefined;session.customer.name=name;session.customer.dateOfBirth=dateOfBirth;session.customer.phone=phone;await saveDb();return send(res,200,{ok:true,customer:publicCustomer(session.customer)});
     }
     if(req.method==='POST'&&route==='/api/account/wishlist'){
       const session=customerSession(req);if(!session?.customer)return send(res,401,{error:'Sign in to save favourites to your wishlist.'});
