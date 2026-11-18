@@ -463,6 +463,7 @@ function customerSession(req) {
   return {token,customer:db.customers.find(c=>c.id===session.customerId)||null};
 }
 function publicCustomer(customer) {
+  // Return only the signed-in customer's profile fields; never expose credentials or internal IDs.
   const parts=String(customer.name||'').trim().split(/\s+/).filter(Boolean);
   return {title:customer.title||'',firstName:customer.firstName||parts.shift()||'',lastName:customer.lastName||(parts.join(' ')),name:customer.name,email:customer.email,dateOfBirth:customer.dateOfBirth||'',phone:customer.phone||''};
 }
