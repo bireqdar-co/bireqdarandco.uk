@@ -671,11 +671,12 @@ async function handleApi(req,res,url) {
       await saveDb();return send(res,200,{ok:true,wishlist:session.customer.wishlist});
     }
     if(req.method==='POST'&&route==='/api/account/register'){
-      const b=await readJson(req),firstName=clean(b.firstName,60).replace(/\s+/g,' '),lastName=clean(b.lastName,60).replace(/\s+/g,' '),name=`${firstName} ${lastName}`.trim(),title=clean(b.title,30),email=clean(b.email,254).trim().toLowerCase(),confirmEmail=clean(b.confirmEmail,254).trim().toLowerCase(),password=String(b.password||''),confirmPassword=String(b.confirmPassword||''),dateOfBirth=clean(b.dateOfBirth,10),ageConfirmed=b.ageConfirmed===true||b.ageConfirmed==='true'||b.ageConfirmed==='on';
+      const b=await readJson(req),firstName=clean(b.firstName,60).replace(/\s+/g,' '),lastName=clean(b.lastName,60).replace(/\s+/g,' '),name=`${firstName} ${lastName}`.trim(),title=clean(b.title,30),email=clean(b.email,254).trim().toLowerCase(),confirmEmail=clean(b.confirmEmail,254).trim().toLowerCase(),password=String(b.password||''),confirmPassword=String(b.confirmPassword||''),dateOfBirth=clean(b.dateOfBirth,10),phone=clean(b.phone,20),ageConfirmed=b.ageConfirmed===true||b.ageConfirmed==='true'||b.ageConfirmed==='on';
       if(!enforceRateLimit(req,res,`account-register:${email}`,5,15*60*1000,route))return;
       if(!allowedCustomerTitles.has(title))return send(res,400,{error:'Choose a title from the list, or leave it blank.'});
       if(!validCustomerName(firstName)||!validCustomerName(lastName)||!validEmail(email)||password.length<12||password.length>200)return send(res,400,{error:'Enter a valid first and last name, a valid email and a password of at least 12 characters.'});
       if(!validAdultDateOfBirth(dateOfBirth))return send(res,400,{error:'You must be at least 18 years old to create an account.'});
+      if(!/^\+[1-9]\d{7,14}$/.test(phone))return send(res,400,{error:'Enter a valid phone number with its country calling code.'});
       if(email!==confirmEmail)return send(res,400,{error:'The email addresses do not match.'});
       if(password!==confirmPassword)return send(res,400,{error:'The passwords do not match.'});
       if(!ageConfirmed)return send(res,400,{error:'You must confirm that you are 18 or older to create an account.'});
@@ -683,7 +684,7 @@ async function handleApi(req,res,url) {
       if(process.env.NODE_ENV==='production'&&!APP_URL)return send(res,503,{error:'Secure account email links are not configured. Please contact our team.'});
       if(db.customers.some(c=>c.email===email))return send(res,409,{error:'An account with this email already exists. Please sign in.'});
       const verificationToken=crypto.randomBytes(32).toString('base64url');
-      const customer={id:id(),title,firstName,lastName,name,email,dateOfBirth,passwordHash:await hashPassword(password),ageConfirmedAt:new Date().toISOString(),emailVerificationTokenHash:tokenHash(verificationToken),emailVerificationExpiresAt:Date.now()+24*60*60*1000,createdAt:new Date().toISOString()};
+      const customer={id:id(),title,firstName,lastName,name,email,dateOfBirth,phone,passwordHash:await hashPassword(password),ageConfirmedAt:new Date().toISOString(),emailVerificationTokenHash:tokenHash(verificationToken),emailVerificationExpiresAt:Date.now()+24*60*60*1000,createdAt:new Date().toISOString()};
       db.customers.push(customer);await saveDb();
       const verificationUrl=new URL('/account.html',APP_URL||`http://${req.headers.host||'localhost'}`);verificationUrl.searchParams.set('verify',verificationToken);
       const sent=await sendAccountVerificationEmail(email,verificationUrl.toString(),`account-verification/${customer.id}/${tokenHash(verificationToken)}`);

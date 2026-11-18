@@ -453,3 +453,11 @@ button,a,input,select,textarea{-webkit-tap-highlight-color:transparent;touch-act
 .account-card .account-form .account-age-confirm{display:flex;grid-column:1/-1;align-items:center;justify-content:flex-start;gap:12px;width:100%;margin:0;padding:14px 16px;border:1px solid rgba(65,82,64,.18);border-radius:10px;background:rgba(255,255,255,.42);color:#526653;font:14px/1.5 "Times New Roman",Times,serif;text-align:left}
 .account-card .account-form .account-age-confirm input{flex:0 0 18px;width:18px;height:18px;min-height:18px;margin:0;accent-color:#670626}
 .account-card .account-form .account-age-confirm span{font:14px/1.5 "Times New Roman",Times,serif;color:#526653}
+.account-card .account-form .account-phone-grid{display:grid;grid-template-columns:minmax(140px,.8fr) minmax(0,1.2fr);gap:12px}
+.account-card .account-form .account-phone-grid label{min-width:0}
+.account-card .account-form .account-phone-grid select{width:100%;min-height:48px;padding:10px;border:1px solid rgba(65,82,64,.23);border-radius:8px;background:#fffefa;color:#263a2e;font:14px "Times New Roman",Times,serif}
+.account-password-wrap{position:relative;display:flex;align-items:center}
+.account-password-wrap input{width:100%;padding-right:50px!important}
+.password-visibility-toggle{position:absolute;right:14px;cursor:pointer;color:#715a37;font:18px Arial,sans-serif}
+.account-card .account-form label.field-invalid input,.account-card .account-form label.field-invalid select{border-color:#670626;box-shadow:0 0 0 2px rgba(103,6,38,.12)}
+@media(max-width:520px){.account-card .account-form .account-phone-grid{grid-template-columns:1fr}}
