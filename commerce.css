@@ -441,3 +441,10 @@ button,a,input,select,textarea{-webkit-tap-highlight-color:transparent;touch-act
 .account-card .account-form .account-age-confirm{display:flex;grid-template-columns:none;align-items:flex-start;gap:11px;text-transform:none;letter-spacing:0;font:14px/1.5 "Times New Roman",Times,serif;color:#59675a}
 .account-age-confirm input{flex:0 0 auto;width:18px;height:18px;margin:1px 0 0;accent-color:#9b7c4f}
 @media(max-width:520px){.account-card .account-name-grid,.account-profile-form .account-name-grid{grid-template-columns:1fr;gap:15px}}
+
+/* Account title remains a compact, full-width control in the profile grid. */
+.account-profile-form .account-title-field{grid-column:1/-1;display:grid;gap:8px;align-self:start}
+.account-profile-form .account-title-field select{width:100%;height:48px;min-height:48px}
+.wishlist-toggle.is-saved{color:#670626}
+.account-profile-form .account-name-grid{grid-column:1/-1}
+.account-profile-form .account-name-grid label{grid-column:auto}

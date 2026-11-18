@@ -433,6 +433,14 @@ function parseImageDataUri(value,maxBytes) {
 function clean(s, max=5000) { return String(s ?? '').trim().slice(0,max); }
 function validEmail(s) { return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s) && s.length <= 254; }
 function validCustomerName(value) { return /^[\p{L}\p{M} .,'’()-]{2,100}$/u.test(String(value||'').trim()); }
+function validAdultDateOfBirth(value) {
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(String(value||'')))return false;
+  const birth=new Date(`${value}T00:00:00.000Z`),today=new Date();
+  if(!Number.isFinite(birth.getTime())||birth.toISOString().slice(0,10)!==value||birth>today)return false;
+  let age=today.getUTCFullYear()-birth.getUTCFullYear();
+  if(today.getUTCMonth()<birth.getUTCMonth()||(today.getUTCMonth()===birth.getUTCMonth()&&today.getUTCDate()<birth.getUTCDate()))age--;
+  return age>=18;
+}
 function validAddressLine(value,{optional=false}={}) { const text=String(value||'').trim();return optional&&!text||/^[\p{L}\p{M}\p{N} .,'’#\/()&-]{4,160}$/u.test(text); }
 function validCity(value) { return /^[\p{L}\p{M} .,'’()-]{2,100}$/u.test(String(value||'').trim()); }
 function validPhone(value) { const phone=String(value||'').trim();if(!phone)return true;const digits=phone.replace(/\D/g,'');return /^[+()\d .-]{7,25}$/.test(phone)&&digits.length>=7&&digits.length<=15; }
@@ -456,7 +464,7 @@ function customerSession(req) {
 }
 function publicCustomer(customer) {
   const parts=String(customer.name||'').trim().split(/\s+/).filter(Boolean);
-  return {id:customer.id,title:customer.title||'',firstName:customer.firstName||parts.shift()||'',lastName:customer.lastName||(parts.join(' ')),name:customer.name,email:customer.email};
+  return {title:customer.title||'',firstName:customer.firstName||parts.shift()||'',lastName:customer.lastName||(parts.join(' ')),name:customer.name,email:customer.email,dateOfBirth:customer.dateOfBirth||''};
 }
 function adminCustomerRows() {
   const customers=new Map();
@@ -647,11 +655,12 @@ async function handleApi(req,res,url) {
     }
     if(req.method==='POST'&&route==='/api/account/profile'){
       const session=customerSession(req);if(!session?.customer)return send(res,401,{error:'Sign in to update your client details.'});
-      const b=await readJson(req),title=clean(b.title,30),firstName=clean(b.firstName,60).replace(/\s+/g,' '),lastName=clean(b.lastName,60).replace(/\s+/g,' '),name=(firstName||lastName)?`${firstName} ${lastName}`.trim():clean(b.name,120).replace(/\s+/g,' ');
+      const b=await readJson(req),title=clean(b.title,30),firstName=clean(b.firstName,60).replace(/\s+/g,' '),lastName=clean(b.lastName,60).replace(/\s+/g,' '),dateOfBirth=clean(b.dateOfBirth,10),name=(firstName||lastName)?`${firstName} ${lastName}`.trim():clean(b.name,120).replace(/\s+/g,' ');
       if(!allowedCustomerTitles.has(title))return send(res,400,{error:'Choose a title from the list, or leave it blank.'});
       if((firstName||lastName)&&(!validCustomerName(firstName)||!validCustomerName(lastName)))return send(res,400,{error:'Enter a valid first and last name using letters and normal punctuation.'});
       if(!validCustomerName(name))return send(res,400,{error:'Enter a valid full name using letters and normal punctuation.'});
-      session.customer.title=title;session.customer.firstName=firstName||undefined;session.customer.lastName=lastName||undefined;session.customer.name=name;await saveDb();return send(res,200,{ok:true,customer:publicCustomer(session.customer)});
+      if(!validAdultDateOfBirth(dateOfBirth))return send(res,400,{error:'Enter a valid date of birth confirming you are at least 18.'});
+      session.customer.title=title;session.customer.firstName=firstName||undefined;session.customer.lastName=lastName||undefined;session.customer.name=name;session.customer.dateOfBirth=dateOfBirth;await saveDb();return send(res,200,{ok:true,customer:publicCustomer(session.customer)});
     }
     if(req.method==='POST'&&route==='/api/account/wishlist'){
       const session=customerSession(req);if(!session?.customer)return send(res,401,{error:'Sign in to save favourites to your wishlist.'});
@@ -662,10 +671,11 @@ async function handleApi(req,res,url) {
       await saveDb();return send(res,200,{ok:true,wishlist:session.customer.wishlist});
     }
     if(req.method==='POST'&&route==='/api/account/register'){
-      const b=await readJson(req),firstName=clean(b.firstName,60).replace(/\s+/g,' '),lastName=clean(b.lastName,60).replace(/\s+/g,' '),name=`${firstName} ${lastName}`.trim(),title=clean(b.title,30),email=clean(b.email,254).trim().toLowerCase(),confirmEmail=clean(b.confirmEmail,254).trim().toLowerCase(),password=String(b.password||''),confirmPassword=String(b.confirmPassword||''),ageConfirmed=b.ageConfirmed===true||b.ageConfirmed==='true'||b.ageConfirmed==='on';
+      const b=await readJson(req),firstName=clean(b.firstName,60).replace(/\s+/g,' '),lastName=clean(b.lastName,60).replace(/\s+/g,' '),name=`${firstName} ${lastName}`.trim(),title=clean(b.title,30),email=clean(b.email,254).trim().toLowerCase(),confirmEmail=clean(b.confirmEmail,254).trim().toLowerCase(),password=String(b.password||''),confirmPassword=String(b.confirmPassword||''),dateOfBirth=clean(b.dateOfBirth,10),ageConfirmed=b.ageConfirmed===true||b.ageConfirmed==='true'||b.ageConfirmed==='on';
       if(!enforceRateLimit(req,res,`account-register:${email}`,5,15*60*1000,route))return;
       if(!allowedCustomerTitles.has(title))return send(res,400,{error:'Choose a title from the list, or leave it blank.'});
       if(!validCustomerName(firstName)||!validCustomerName(lastName)||!validEmail(email)||password.length<12||password.length>200)return send(res,400,{error:'Enter a valid first and last name, a valid email and a password of at least 12 characters.'});
+      if(!validAdultDateOfBirth(dateOfBirth))return send(res,400,{error:'You must be at least 18 years old to create an account.'});
       if(email!==confirmEmail)return send(res,400,{error:'The email addresses do not match.'});
       if(password!==confirmPassword)return send(res,400,{error:'The passwords do not match.'});
       if(!ageConfirmed)return send(res,400,{error:'You must confirm that you are 18 or older to create an account.'});
@@ -673,7 +683,7 @@ async function handleApi(req,res,url) {
       if(process.env.NODE_ENV==='production'&&!APP_URL)return send(res,503,{error:'Secure account email links are not configured. Please contact our team.'});
       if(db.customers.some(c=>c.email===email))return send(res,409,{error:'An account with this email already exists. Please sign in.'});
       const verificationToken=crypto.randomBytes(32).toString('base64url');
-      const customer={id:id(),title,firstName,lastName,name,email,passwordHash:await hashPassword(password),ageConfirmedAt:new Date().toISOString(),emailVerificationTokenHash:tokenHash(verificationToken),emailVerificationExpiresAt:Date.now()+24*60*60*1000,createdAt:new Date().toISOString()};
+      const customer={id:id(),title,firstName,lastName,name,email,dateOfBirth,passwordHash:await hashPassword(password),ageConfirmedAt:new Date().toISOString(),emailVerificationTokenHash:tokenHash(verificationToken),emailVerificationExpiresAt:Date.now()+24*60*60*1000,createdAt:new Date().toISOString()};
       db.customers.push(customer);await saveDb();
       const verificationUrl=new URL('/account.html',APP_URL||`http://${req.headers.host||'localhost'}`);verificationUrl.searchParams.set('verify',verificationToken);
       const sent=await sendAccountVerificationEmail(email,verificationUrl.toString(),`account-verification/${customer.id}/${tokenHash(verificationToken)}`);

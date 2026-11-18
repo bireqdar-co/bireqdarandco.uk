@@ -11,6 +11,7 @@
     button.setAttribute('aria-label', saved ? 'Remove from wishlist' : 'Save to wishlist');
     button.title = saved ? 'Remove from wishlist' : 'Save to wishlist';
     button.classList.toggle('is-saved', saved);
+    button.textContent = saved ? '♥' : '♡';
   }
   async function account() {
     const response = await fetch('/api/account', { cache: 'no-store' });
