@@ -710,3 +710,6 @@ em{color:#8B0D1A!important}
 em{color:#670626!important}
 ::selection{background:#670626;color:#F6F3E9}
 ::-moz-selection{background:#670626;color:#F6F3E9}
+
+/* Use the house burgundy for every italic editorial accent, including page-specific headings. */
+html body em{color:#670626!important}
