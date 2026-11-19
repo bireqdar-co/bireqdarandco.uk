@@ -313,6 +313,15 @@ async function loadDb() {
     if(!db.products.some(item=>item.id===product.id)){db.products.unshift(product);migrated=true;}
     db.version=10;migrated=true;
   }
+  if(Number(db.version||0)<11){
+    const chain=db.products.find(item=>item.id==='tennis-chain-925-silver'||item.slug==='tennis-chain-3mm-925-silver');
+    if(chain){
+      chain.image='/assets/catalogue/tennis-chain-hero.jpg';
+      chain.images=['/assets/catalogue/tennis-chain-hero.jpg','/assets/catalogue/tennis-chain-full.jpg','/assets/catalogue/tennis-chain-setting.jpg','/assets/catalogue/tennis-chain-clasp.jpg'];
+      migrated=true;
+    }
+    db.version=11;migrated=true;
+  }
   for(const p of db.products){if(!Number.isFinite(Number(p.vatRate))){p.vatRate=20;migrated=true;}if(p.brand===undefined){p.brand='';migrated=true;}if(p.bullionType===undefined){p.bullionType='';migrated=true;}if(p.gemstoneType===undefined){p.gemstoneType='';migrated=true;}}
   for (const key of Object.keys(db.sessions)) {
     if (!/^[a-f0-9]{64}$/.test(key)) { db.sessions[tokenHash(key)] = db.sessions[key]; delete db.sessions[key]; migrated = true; }

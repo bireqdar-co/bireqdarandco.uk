@@ -505,3 +505,11 @@ button,a,input,select,textarea{-webkit-tap-highlight-color:transparent;touch-act
 @media(max-width:850px){.product-detail .product-image-large.product-gallery{height:clamp(460px,68svh,720px);min-height:0}}
 @media(max-width:620px){.product-detail .product-image-large.product-gallery{height:min(70svh,620px);min-height:380px}.product-gallery-controls{bottom:12px;gap:12px;padding:6px 10px}.product-gallery-controls button{width:32px;height:32px}}
 @media(prefers-reduced-motion:reduce){.product-gallery-track,.product-gallery-controls button,.product-gallery-dots button,.store-card-gallery-track{transition:none}}
+
+/* Catalogue cards show every supplied photo in full and omit the teaser copy. */
+.store-card-image{height:auto!important;aspect-ratio:4/5!important;place-items:center;background:#f6f3eb!important}
+.store-card-image>img,.store-card-gallery-track img{object-fit:contain!important;object-position:center!important;background:#f6f3eb}
+.store-card-image>img{padding:8px;box-sizing:border-box}
+.store-card-gallery-track img{padding:8px;box-sizing:border-box}
+.store-card-body>p{display:none!important}
+@media(max-width:620px){.store-card-image{height:auto!important;aspect-ratio:2/3!important}.store-card-image>img,.store-card-gallery-track img{padding:6px}}
