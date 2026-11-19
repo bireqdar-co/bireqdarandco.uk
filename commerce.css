@@ -467,3 +467,19 @@ button,a,input,select,textarea{-webkit-tap-highlight-color:transparent;touch-act
 .account-section-menu .account-signout:hover{border-color:#670626;background:#670626;color:#f3eee3}
 .account-section-menu .account-signout svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}
 @media(max-width:760px){.account-section-menu .account-signout{grid-column:1/-1;margin-top:6px}}
+
+/* Product photography gallery: vertical transitions with touch and keyboard controls. */
+.product-detail .product-image-large.product-gallery{position:relative;display:block;min-width:0;min-height:0;height:clamp(480px,68vw,780px);aspect-ratio:auto;overflow:hidden;border:1px solid rgba(198,164,119,.22);background:#f6f3eb;touch-action:pan-x;outline-offset:4px}
+.product-gallery-stage,.product-gallery-track{width:100%;height:100%;overflow:hidden}
+.product-gallery-track{display:flex;flex-direction:column;transition:transform .62s cubic-bezier(.22,.75,.25,1);will-change:transform}
+.product-gallery-slide{display:grid;place-items:center;flex:0 0 100%;width:100%;height:100%;min-height:0;margin:0;overflow:hidden;background:#f6f3eb}
+.product-gallery-slide img{display:block;width:100%;height:100%;min-height:0;object-fit:contain;aspect-ratio:auto;background:#f6f3eb}
+.product-gallery-controls{position:absolute;top:50%;right:16px;display:grid;justify-items:center;gap:10px;transform:translateY(-50%);padding:10px 8px;border:1px solid rgba(35,54,40,.13);border-radius:30px;background:rgba(248,246,239,.9);box-shadow:0 6px 20px rgba(15,30,20,.12);backdrop-filter:blur(8px);color:#284635}
+.product-gallery-controls>span{font:11px Arial,sans-serif;letter-spacing:.04em;writing-mode:vertical-rl;color:#526653}
+.product-gallery-controls>span i{font-style:normal;color:#a48758}
+.product-gallery-controls button{display:grid;place-items:center;width:34px;height:34px;border:1px solid rgba(177,141,89,.42);border-radius:50%;background:#fffdf7;color:#284635;font:21px/1 Arial,sans-serif;cursor:pointer;transition:background .2s,color .2s,transform .2s}
+.product-gallery-controls button:hover{background:#c6a477;color:#17291d;transform:scale(1.04)}
+.product-gallery:focus-visible{outline:2px solid #c6a477}
+@media(max-width:850px){.product-detail .product-image-large.product-gallery{height:clamp(430px,70svh,680px);min-height:0}}
+@media(max-width:620px){.product-detail .product-image-large.product-gallery{height:min(72svh,640px);min-height:400px;border-radius:10px}.product-gallery-controls{right:10px;gap:7px;padding:8px 6px}.product-gallery-controls button{width:32px;height:32px}}
+@media(prefers-reduced-motion:reduce){.product-gallery-track,.product-gallery-controls button{transition:none}}

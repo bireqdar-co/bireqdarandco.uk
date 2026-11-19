@@ -300,6 +300,19 @@ async function loadDb() {
     for(let i=0;i<sampleContacts.length;i++){const order=db.orders.find(item=>item.id===`order-demo-${i+1}`);if(order)order.customer={...order.customer,...sampleContacts[i]};}
     db.version=9;migrated=true;
   }
+  if(Number(db.version||0)<10){
+    const product={
+      id:'tennis-chain-925-silver',slug:'tennis-chain-3mm-925-silver',name:'Tennis Chain 3 mm — 18 in',type:'jewellery',category:'necklaces',collectionId:'col-silver',
+      short:'A classic 3 mm tennis chain in 925 sterling silver, set with 12.5 ct total cubic zirconia.',
+      description:'A refined tennis chain with a continuous line of cubic zirconia. Crafted in 925 sterling silver, the stones have a combined total weight of 12.5 carats. The chain measures 3 mm wide and 18 inches (45.72 cm) long.',
+      priceCents:18000,stock:1,currency:'GBP',image:'/assets/catalogue/tennis-chain-hero.jpg',
+      images:['/assets/catalogue/tennis-chain-hero.jpg','/assets/catalogue/tennis-chain-full.jpg','/assets/catalogue/tennis-chain-setting.jpg','/assets/catalogue/tennis-chain-clasp.jpg'],
+      published:true,isDemo:false,inquiryOnly:false,vatRate:20,
+      specifications:[{label:'Metal',value:'925 sterling silver'},{label:'Stones',value:'Cubic zirconia'},{label:'Total stone weight',value:'12.5 ct'},{label:'Width',value:'3 mm'},{label:'Length',value:'18 in / 45.72 cm'}]
+    };
+    if(!db.products.some(item=>item.id===product.id)){db.products.unshift(product);migrated=true;}
+    db.version=10;migrated=true;
+  }
   for(const p of db.products){if(!Number.isFinite(Number(p.vatRate))){p.vatRate=20;migrated=true;}if(p.brand===undefined){p.brand='';migrated=true;}if(p.bullionType===undefined){p.bullionType='';migrated=true;}if(p.gemstoneType===undefined){p.gemstoneType='';migrated=true;}}
   for (const key of Object.keys(db.sessions)) {
     if (!/^[a-f0-9]{64}$/.test(key)) { db.sessions[tokenHash(key)] = db.sessions[key]; delete db.sessions[key]; migrated = true; }
@@ -447,7 +460,7 @@ function validPhone(value) { const phone=String(value||'').trim();if(!phone)retu
 function validPostalCode(value) { const postal=String(value||'').trim();return /^[A-Z0-9][A-Z0-9 -]{1,18}[A-Z0-9]$/i.test(postal); }
 function validCountry(value) { return /^[\p{L}\p{M} .,'’()-]{2,80}$/u.test(String(value||'').trim()); }
 function publicProduct(p) {
-  return { id:p.id, slug:p.slug, name:p.name, type:p.type, category:p.category||'', collectionId:p.collectionId, short:p.short, description:p.description, priceCents:p.priceCents, stock:p.stock, currency:p.currency || db.settings.currency, image:p.image, inquiryOnly:!!p.inquiryOnly, isDemo:!!p.isDemo, specifications:Array.isArray(p.specifications)?p.specifications:[], vatRate:Number.isFinite(Number(p.vatRate))?Number(p.vatRate):20, brand:p.brand||'', bullionType:p.bullionType||'', gemstoneType:p.gemstoneType||'' };
+  return { id:p.id, slug:p.slug, name:p.name, type:p.type, category:p.category||'', collectionId:p.collectionId, short:p.short, description:p.description, priceCents:p.priceCents, stock:p.stock, currency:p.currency || db.settings.currency, image:p.image, images:Array.isArray(p.images)?p.images:[], inquiryOnly:!!p.inquiryOnly, isDemo:!!p.isDemo, specifications:Array.isArray(p.specifications)?p.specifications:[], vatRate:Number.isFinite(Number(p.vatRate))?Number(p.vatRate):20, brand:p.brand||'', bullionType:p.bullionType||'', gemstoneType:p.gemstoneType||'' };
 }
 function sessionFrom(req) {
   const cookie=String(req.headers.cookie||'').split(';').map(v=>v.trim()).find(v=>v.startsWith('bireqdar_session='));
