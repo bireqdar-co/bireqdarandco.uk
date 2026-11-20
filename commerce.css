@@ -608,3 +608,16 @@ button,a,input,select,textarea{-webkit-tap-highlight-color:transparent;touch-act
   background: transparent;
   mix-blend-mode: normal;
 }
+
+/* Size the product frame to each source photo so no empty side gutters remain. */
+.product-detail .product-image-large.product-gallery {
+  height: auto !important;
+  min-height: 0;
+  aspect-ratio: var(--gallery-aspect-ratio, 2 / 3);
+  background: transparent;
+}
+.product-gallery-stage,
+.product-gallery-track,
+.product-gallery-slide {
+  height: 100%;
+}
