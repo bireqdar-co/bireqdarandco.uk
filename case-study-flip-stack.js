@@ -40,6 +40,38 @@
       background: '#381b26', foreground: '#f3eddf',
       href: 'shop.html?type=watch', linkLabel: 'Explore watches',
       secondaryHref: 'bespoke.html', secondaryLabel: 'Start a commission'
+    },
+    {
+      eyebrow: 'A WATCH TO REMEMBER',
+      title: 'The Emerald Monolith.',
+      description: 'Sculptural lines and a deep emerald dial bring quiet presence to the collection.',
+      details: ['Design language · Sculptural minimalism', 'Dial study · Faceted emerald green'],
+      image: '/watch-collection-concept.png',
+      imageAlt: 'Three timepieces arranged on dark sculptural plinths',
+      background: '#e8dfcc', foreground: '#263e30',
+      href: 'shop.html?type=watch', linkLabel: 'Explore our watch collection'
+    },
+    {
+      id: 'story',
+      eyebrow: 'A DIFFERENT WAY TO MARK TIME',
+      title: 'Geometry with a softer edge.',
+      description: 'BIREQDAR&CO. brings together personal adornment and thoughtful design. Explore diamond jewellery, watches and bespoke pieces, with each product described using verified details.',
+      details: ['Considered form · Architectural lines, softened for everyday wear', 'Light, held · An emerald study that changes with the light', 'Time to imagine · Jewellery, precious metals, bespoke pieces and watches'],
+      image: '/assets/catalogue/emerald-line-pendant.jpg',
+      imageAlt: 'Emerald jewellery detail from the collection',
+      background: '#173c2d', foreground: '#f3eddf',
+      href: 'shop.html', linkLabel: 'Discover the collection',
+      secondaryHref: 'contact.html', secondaryLabel: 'Start a conversation'
+    },
+    {
+      eyebrow: 'LET’S BEGIN A CONVERSATION',
+      title: 'Curious about BIREQDAR&CO.?',
+      description: 'Tell us what caught your eye and our team will respond personally. For availability, sourcing or a private appointment, we are here to help.',
+      image: '/logo-monogram.png',
+      imageAlt: 'BIREQDAR&CO. crowned monogram',
+      background: '#062318', foreground: '#f3eddf',
+      href: 'contact.html', linkLabel: 'Make an enquiry',
+      secondaryHref: 'privacy.html', secondaryLabel: 'Privacy notes'
     }
   ];
   const escape = value => String(value ?? '').replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]);
@@ -48,19 +80,19 @@
     <section class="flip-stack-section" aria-labelledby="flip-stack-heading">
       <header class="flip-stack-intro">
         <div><p class="eyebrow">DISCOVER BIREQDAR&amp;CO.</p><h2 id="flip-stack-heading">Pieces with<br><em>presence.</em></h2></div>
-        <p>Move through the collections, one considered piece at a time.</p>
+        <p>Move through our collections, stories and services, one considered card at a time.</p>
         <span class="flip-stack-scroll-cue" aria-hidden="true">SCROLL TO EXPLORE <b>↓</b></span>
       </header>
       <div class="flip-stack-scroll" style="--flip-card-count:${items.length}">
         <div class="flip-stack-stage">
           ${items.map((item, index) => `
-            <article class="flip-stack-card" data-flip-card="${index}" style="--flip-card-bg:${escape(item.background)};--flip-card-fg:${escape(item.foreground)};--flip-card-index:${index}" aria-label="${escape(item.eyebrow)}: ${escape(item.title)}">
-              <div class="flip-stack-copy"><p class="flip-stack-eyebrow">${escape(item.eyebrow)}</p><span class="flip-stack-number">0${index + 1}</span><h3>${escape(item.title)}</h3><p class="flip-stack-description">${escape(item.description)}</p><div class="flip-stack-links"><a href="${escape(item.href)}">${escape(item.linkLabel)} <span aria-hidden="true">↗</span></a>${item.secondaryHref ? `<a class="flip-stack-secondary" href="${escape(item.secondaryHref)}">${escape(item.secondaryLabel)} <span aria-hidden="true">↗</span></a>` : ''}</div></div>
+            <article id="${escape(item.id || `flip-card-${index}`)}" class="flip-stack-card${item.details?.length ? ' has-details' : ''}" data-flip-card="${index}" style="--flip-card-bg:${escape(item.background)};--flip-card-fg:${escape(item.foreground)};--flip-card-index:${index}" aria-label="${escape(item.eyebrow)}: ${escape(item.title)}">
+              <div class="flip-stack-copy"><p class="flip-stack-eyebrow">${escape(item.eyebrow)}</p><span class="flip-stack-number">${String(index + 1).padStart(2, '0')}</span><h3>${escape(item.title)}</h3><p class="flip-stack-description">${escape(item.description)}</p>${item.details?.length ? `<ul class="flip-stack-details">${item.details.map(detail => `<li>${escape(detail)}</li>`).join('')}</ul>` : ''}<div class="flip-stack-links"><a href="${escape(item.href)}">${escape(item.linkLabel)} <span aria-hidden="true">↗</span></a>${item.secondaryHref ? `<a class="flip-stack-secondary" href="${escape(item.secondaryHref)}">${escape(item.secondaryLabel)} <span aria-hidden="true">↗</span></a>` : ''}</div></div>
               <div class="flip-stack-image"><img src="${escape(item.image)}" alt="${escape(item.imageAlt)}" loading="${index===0?'eager':'lazy'}"></div>
             </article>`).join('')}
         </div>
       </div>
-      <p class="flip-stack-end">A considered collection. <a href="shop.html">Explore every piece <span aria-hidden="true">↗</span></a></p>
+      <p class="flip-stack-end">Form follows feeling. Time, made tangible. <a href="shop.html">Explore every piece <span aria-hidden="true">↗</span></a></p>
     </section>`;
 
   const scrollArea = root.querySelector('.flip-stack-scroll');
