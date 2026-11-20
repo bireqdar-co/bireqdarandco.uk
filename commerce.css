@@ -513,3 +513,21 @@ button,a,input,select,textarea{-webkit-tap-highlight-color:transparent;touch-act
 .store-card-gallery-track img{padding:8px;box-sizing:border-box}
 .store-card-body>p{display:none!important}
 @media(max-width:620px){.store-card-image{height:auto!important;aspect-ratio:2/3!important}.store-card-image>img,.store-card-gallery-track img{padding:6px}}
+
+/* Softer product imagery and card-wide hover surfaces. */
+.store-card{border:1px solid rgba(94,91,75,.14);border-radius:20px;box-shadow:0 8px 24px rgba(30,39,28,.045);transition:transform .32s ease,border-color .32s ease,box-shadow .32s ease}
+.store-card:hover,.store-card:focus-within{transform:translateY(-3px);border-color:rgba(153,125,81,.28);box-shadow:0 16px 34px rgba(30,39,28,.1)}
+.store-card-image,.store-card-image.has-card-gallery{border-radius:19px 19px 0 0;background:#f9f7ef!important;transition:background-color .3s ease}
+.store-card:hover .store-card-image,.store-card:focus-within .store-card-image{background:#f4f1e8!important}
+.store-card-image>img,.store-card-gallery-track img{mix-blend-mode:multiply}
+.product-detail .product-image-large.product-gallery{height:clamp(430px,50vw,660px);min-height:0;border:0;border-radius:20px;background:#f6f3eb;box-shadow:0 20px 54px rgba(0,0,0,.13);overflow:hidden}
+.product-gallery-slide,.product-gallery-slide img{background:#f6f3eb}
+.product-gallery-slide img{mix-blend-mode:multiply}
+.product-gallery-controls{bottom:14px;padding:5px 9px;border:1px solid rgba(40,70,53,.08);background:rgba(248,246,239,.74);box-shadow:0 3px 14px rgba(15,30,20,.08)}
+@media(max-width:850px){.product-detail .product-image-large.product-gallery{height:clamp(420px,62svh,580px)}}
+@media(max-width:620px){.store-card-image{border-radius:18px 18px 0 0}.product-detail .product-image-large.product-gallery{height:min(62svh,540px);min-height:360px;border-radius:16px}}
+@media(prefers-reduced-motion:reduce){.store-card,.store-card-image{transition:none}}
+.admin-finish-options{grid-column:1/-1;margin:0;padding:15px 0;border:0;border-top:1px solid rgba(198,164,119,.24)}
+.admin-finish-options legend{padding:0 0 7px;color:#e8dcc5;font:14px "Times New Roman",Times,serif}
+.admin-finish-options>p{margin:0 0 9px;color:#b9b6a9;font:12px/1.5 Arial,sans-serif}
+.admin-finish-options .checks{display:flex;flex-wrap:wrap;gap:10px 22px}
