@@ -583,32 +583,6 @@ button,a,input,select,textarea{-webkit-tap-highlight-color:transparent;touch-act
   .product-gallery-track { transition: none; }
 }
 
-/* The foreground stays uncropped while its soft, blurred duplicate fills the frame. */
-.product-gallery-slide .product-gallery-backdrop {
-  position: absolute !important;
-  inset: 0 !important;
-  z-index: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  filter: blur(24px) brightness(.72) saturate(.78);
-  opacity: .24;
-  transform: scale(1.08);
-  mix-blend-mode: multiply;
-  pointer-events: none;
-}
-.product-gallery-slide .product-gallery-image {
-  position: relative !important;
-  inset: auto !important;
-  z-index: 1;
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-  object-position: center;
-  background: transparent;
-  mix-blend-mode: normal;
-}
-
 /* Size the product frame to each source photo so no empty side gutters remain. */
 .product-detail .product-image-large.product-gallery {
   height: auto !important;
@@ -620,4 +594,81 @@ button,a,input,select,textarea{-webkit-tap-highlight-color:transparent;touch-act
 .product-gallery-track,
 .product-gallery-slide {
   height: 100%;
+}
+
+/* Keep the photo crisp, aligned, and capped while sizing its frame to its proportions. */
+.product-detail .product-image-large.product-gallery {
+  display: block;
+  justify-self: center;
+  margin-inline: auto;
+  max-width: 100%;
+  min-height: 0;
+  border: 0;
+  outline: 0;
+  box-shadow: none;
+  background: transparent;
+}
+.product-gallery-stage,
+.product-gallery-track,
+.product-gallery-slide {
+  border: 0;
+  padding: 0;
+  background: transparent;
+}
+.product-gallery-slide img {
+  position: relative !important;
+  inset: auto !important;
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  object-position: center;
+  background: transparent;
+  mix-blend-mode: normal;
+}
+.product-gallery-controls {
+  gap: 8px;
+  padding: 5px 8px;
+}
+.product-gallery-controls > button {
+  width: 34px;
+  height: 34px;
+  font-size: 18px;
+}
+.product-gallery-dots button {
+  width: 6px;
+  height: 6px;
+  min-width: 6px;
+}
+.product-gallery-dots button[aria-current="true"] {
+  width: 15px;
+}
+@media (max-width: 620px) {
+  .product-detail .product-image-large.product-gallery {
+    border-radius: 12px;
+  }
+  .product-gallery-controls {
+    bottom: 10px;
+    gap: 3px;
+    padding: 3px 6px;
+    border-color: rgba(40, 70, 53, .1);
+    background: rgba(248, 246, 239, .76);
+    box-shadow: 0 2px 9px rgba(15, 30, 20, .08);
+  }
+  .product-gallery-controls > button {
+    width: 30px;
+    height: 30px;
+    font-size: 14px;
+  }
+  .product-gallery-dots {
+    gap: 5px;
+  }
+  .product-gallery-dots button {
+    width: 5px;
+    height: 5px;
+    min-width: 5px;
+  }
+  .product-gallery-dots button[aria-current="true"] {
+    width: 11px;
+  }
 }
