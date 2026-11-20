@@ -73,6 +73,7 @@
     frame = 0;
     if (motion.matches || !cards.length) return;
     const cardHeight = stage.getBoundingClientRect().height || window.innerHeight;
+    // Each viewport of scroll advances one card; the active card folds away as the next rises into place.
     const scrollProgress = Math.max(0, Math.min(cards.length - 1, -scrollArea.getBoundingClientRect().top / cardHeight));
     const current = Math.floor(scrollProgress);
     const progress = scrollProgress - current;
