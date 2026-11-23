@@ -505,3 +505,10 @@ html body.cinematic .brand-rail .brand-rail-logo { height: 22px; max-width: 104p
 html body.cinematic .brand-rail button:hover .brand-rail-logo { opacity: 1; filter: brightness(0) invert(.45) sepia(1) saturate(1.8) hue-rotate(-6deg); }
 html body.cinematic .brand-rail button.is-active .brand-rail-logo { filter: brightness(0) invert(.9) sepia(.35); opacity: 1; }
 html body.cinematic .brand-rail .brand-rail-logo { height: 28px; max-width: 118px; }
+/* logo-only brand tiles */
+.brand-rail .visually-hidden { position: absolute !important; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+html body.cinematic .brand-rail button:has(.brand-rail-logo) { align-items: center !important; justify-content: center !important; padding: 14px 16px !important; }
+html body.cinematic .brand-rail .brand-rail-logo { height: 40px; max-width: 120px; margin: 0; object-position: center; }
+html body.cinematic .brand-rail button[data-brand="all"] { justify-content: center !important; }
+@media (max-width: 640px) { html body.cinematic .brand-rail .brand-rail-logo { height: 34px; max-width: 104px; } }
+html body.cinematic .brand-rail button[data-brand="all"] { align-items: center !important; text-align: center; }
