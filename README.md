@@ -110,3 +110,14 @@ Watch pages can show an interactive 3D model next to the photographs: drag to tu
 3. The product page shows **View in 3D** only once that file exists; pieces without photographs open straight into the 3D view.
 
 **Rolex section.** `shop.html?type=watch&brand=rolex` lists Rolex watches with its own header and a "Rolex" quick link. The GMT-Master II "Batgirl" (ref. 126710BLNR) is included as a sample listing (`isDemo`), so production hides it until its condition, year, box and papers, price and stock are verified and "Sample preview listing" is unticked in the Studio.
+
+### 360° spin view (recommended for polished watches)
+
+A "View 360°" option turns the real watch by scrubbing through turntable photographs (`spin-viewer.js`). Photographs keep polished gold, ceramic and sapphire exactly as they look in life, which 3D scans of reflective watches rarely do.
+
+How to shoot it:
+1. Put the watch upright on a watch cushion on a **turntable** (a cheap manual lazy-Susan works), against a plain, even background. Use soft, steady light; turn off the flash.
+2. Fix the phone on a **tripod** at dial height, about 40–60 cm away. Lock focus and exposure (long-press on iPhone) so every frame matches.
+3. Take **36 photos**, turning the turntable **10° each time** (24 photos at 15° also works). Keep the watch centred and never move the phone.
+4. Name them `01.jpg` … `36.jpg`, same size and crop, ideally 1600–2000 px tall. Put them in `assets/spin/<watch-name>/`.
+5. In the Studio, edit the product and paste the paths (one per line) into **360° spin photographs**. The "View 360°" option appears once every file exists.
