@@ -12,6 +12,15 @@
   const compact = window.matchMedia('(max-width: 980px)');
   const clamp = (value, min = 0, max = 1) => Math.min(max, Math.max(min, value));
 
+  // Hero: the crest takes whatever height the title block leaves free, so the two never overlap.
+  const heroStage = document.querySelector('.cine-hero-stage');
+  const heroTitle = document.querySelector('.cine-hero-title');
+  if (heroStage && heroTitle && 'ResizeObserver' in window) {
+    const fitCrest = () => heroStage.style.setProperty('--hero-title-h', `${Math.ceil(heroTitle.offsetHeight)}px`);
+    new ResizeObserver(fitCrest).observe(heroTitle);
+    fitCrest();
+  }
+
   let motion = !reducedMotion.matches;
   let frame = 0;
 
