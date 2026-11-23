@@ -53,7 +53,26 @@
     eyebrow: `TIMEPIECES · ${name.toUpperCase()}`, title: `${name}, <em>considered.</em>`,
     lede: `Explore ${name} watches and ask us about current models, condition, box and papers, availability and full specifications.`,
   });
+  const brandSlug = name => name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+  const setMark = name => {
+    hero.querySelector('.brand-hero-mark')?.remove();
+    hero.classList.toggle('is-brand', !!name);
+    if (!name) return;
+    const mark = document.createElement('div');
+    mark.className = 'brand-hero-mark';
+    mark.setAttribute('aria-hidden', 'true');
+    mark.innerHTML = '<span class="brand-hero-ring"></span><span class="brand-hero-ring brand-hero-ring--inner"></span>';
+    const logo = new Image();
+    logo.className = 'brand-hero-logo';
+    logo.alt = '';
+    logo.decoding = 'async';
+    logo.addEventListener('error', () => mark.remove());
+    logo.src = `assets/brands/${brandSlug(name)}.svg`;
+    mark.appendChild(logo);
+    hero.querySelector('.page-hero-copy')?.before(mark);
+  };
   const apply = brandName => {
+  setMark(brandName);
   const key = aliases[baseKey] || baseKey;
   const scene = key === 'watch' && brandName ? brandScene(brandName) : (scenes[key] || scenes.all);
   const eyebrow = category && categoryNames[category] ? `${scene.eyebrow.split(' · ')[0]} · ${categoryNames[category].toUpperCase()}` : scene.eyebrow;
