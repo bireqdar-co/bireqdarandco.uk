@@ -363,6 +363,20 @@ async function loadDb() {
     }
     db.version=14;migrated=true;
   }
+  if(Number(db.version||0)<15){
+    // Off-brand 3D sample so the "3D View" experience can be seen on a real product page.
+    // An original BIREQDAR&CO. concept design, labelled as a sample and not for sale.
+    if(!db.products.some(item=>item.id==='concept-watch-3d-sample')){
+      const shot=name=>`/assets/catalogue/concept-watch-3d-${name}.jpg`;
+      db.products.push({ id:'concept-watch-3d-sample', slug:'concept-watch-3d-sample', name:'BIREQDAR&CO. Concept Watch — 3D Sample', type:'watch', brand:'', category:'', collectionId:'col-watches',
+        short:'An original concept design to preview our 3D View. Not a product for sale.',
+        description:'This is a design sample created to show how pieces can be explored in 3D on BIREQDAR&CO. It is not a real watch and is not for sale. Open 3D View to turn it, zoom in and look at it from every side.',
+        priceCents:null, stock:0, currency:'GBP', image:shot('front'), images:['front','three-quarter','caseback'].map(shot), model3d:'/assets/3d/bireqdar-concept-watch.glb', spinFrames:[],
+        published:true, isDemo:false, inquiryOnly:true, vatRate:20, bullionType:'', gemstoneType:'', finishOptions:[],
+        specifications:[{label:'Type',value:'Concept design (3D sample)'},{label:'Availability',value:'Not for sale'}] });
+    }
+    db.version=15;migrated=true;
+  }
   for(const p of db.products){if(!Number.isFinite(Number(p.vatRate))){p.vatRate=20;migrated=true;}if(p.brand===undefined){p.brand='';migrated=true;}if(p.bullionType===undefined){p.bullionType='';migrated=true;}if(p.gemstoneType===undefined){p.gemstoneType='';migrated=true;}}
   for (const key of Object.keys(db.sessions)) {
     if (!/^[a-f0-9]{64}$/.test(key)) { db.sessions[tokenHash(key)] = db.sessions[key]; delete db.sessions[key]; migrated = true; }
