@@ -58,7 +58,7 @@
   const quick = [...document.querySelectorAll('.shop-quicklinks a[data-quick]')];
   if (quick.length) {
     const params = new URLSearchParams(location.search);
-    const key = params.get('brand') || params.get('collection') || params.get('type') || 'all';
+    const key = params.get('collection') || params.get('type') || 'all';
     const match = quick.find(link => link.dataset.quick === key) || (key === 'all' ? quick[0] : null);
     match?.setAttribute('aria-current', 'page');
   }

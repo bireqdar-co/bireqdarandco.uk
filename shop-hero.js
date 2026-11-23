@@ -5,8 +5,7 @@
   const hero = document.querySelector('.page-hero--banner');
   if (!hero) return;
   const params = new URLSearchParams(location.search);
-  const brand = (params.get('brand') || '').toLowerCase();
-  const key = brand === 'rolex' ? 'rolex' : (params.get('collection') || params.get('type') || 'all').toLowerCase();
+  const baseKey = (params.get('collection') || params.get('type') || 'all').toLowerCase();
   const category = (params.get('category') || '').toLowerCase();
   const categoryNames = { necklaces: 'Necklaces', pendants: 'Pendants', earrings: 'Earrings', bracelets: 'Bracelets', rings: 'Rings' };
 
@@ -41,11 +40,6 @@
       eyebrow: 'PRECIOUS METALS · INVESTMENT', title: 'Gold and silver, <em>held close.</em>',
       lede: 'Gold and silver bars and coins, including limited-edition bullion. Ask us for current availability, specifications and item-specific documentation.',
     },
-    rolex: {
-      image: 'emerald-background.png', focus: '50% 40%',
-      eyebrow: 'TIMEPIECES · ROLEX', title: 'Rolex, <em>considered.</em>',
-      lede: 'Explore Rolex watches and ask us about current models, condition, box and papers, availability and full specifications.',
-    },
     watch: {
       image: 'assets/catalogue/emerald-dial-watch-concept.jpg', focus: '50% 45%',
       eyebrow: 'TIMEPIECES', title: 'Watches with <em>presence.</em>',
@@ -53,7 +47,15 @@
     },
   };
   const aliases = { watches: 'watch', diamonds: 'gemstones', investment: 'bullion' };
-  const scene = scenes[aliases[key] || key] || scenes.all;
+  // A watch brand chosen in the Watches section gets its own banner wording.
+  const brandScene = name => ({
+    image: 'emerald-background.png', focus: '50% 40%',
+    eyebrow: `TIMEPIECES · ${name.toUpperCase()}`, title: `${name}, <em>considered.</em>`,
+    lede: `Explore ${name} watches and ask us about current models, condition, box and papers, availability and full specifications.`,
+  });
+  const apply = brandName => {
+  const key = aliases[baseKey] || baseKey;
+  const scene = key === 'watch' && brandName ? brandScene(brandName) : (scenes[key] || scenes.all);
   const eyebrow = category && categoryNames[category] ? `${scene.eyebrow.split(' · ')[0]} · ${categoryNames[category].toUpperCase()}` : scene.eyebrow;
 
   const img = hero.querySelector('.page-hero-banner-media img');
@@ -66,4 +68,8 @@
   set('.page-lede', escapeText(scene.lede));
   const label = (categoryNames[category] ? `${categoryNames[category]} — ` : '') + hero.querySelector('h1').textContent.trim();
   document.title = `${label} — BIREQDAR&CO.`;
+  };
+  window.shopHero = { setBrand: apply };
+  const brandNames = { rolex: 'Rolex', 'patek-philippe': 'Patek Philippe', 'audemars-piguet': 'Audemars Piguet', cartier: 'Cartier', omega: 'Omega', 'richard-mille': 'Richard Mille', 'vacheron-constantin': 'Vacheron Constantin' };
+  apply(brandNames[(params.get('brand') || '').toLowerCase()] || '');
 })();
