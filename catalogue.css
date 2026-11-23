@@ -484,3 +484,16 @@ html body.cinematic .brand-rail button:focus-visible { outline: 2px solid var(--
 html body.cinematic .shop-tools.is-watch-mode #filters { display: none !important; }
 html body.cinematic .shop-tools.is-watch-mode { justify-content: flex-end; border-top: 0 !important; margin-top: -10px; }
 html body.cinematic nav.brand-rail { border-bottom: 0 !important; padding-bottom: 0 !important; }
+/* brand tile marks: a small gold emblem, or the brand's own logo file if one is added */
+html body.cinematic .brand-rail button { position: relative; padding-top: 16px !important; }
+.brand-rail-emblem { width: 18px; height: 18px; margin-bottom: 6px; fill: none; stroke: var(--hc-gold, #c9a66b); stroke-width: 1.1; stroke-linecap: round; opacity: .9; transition: transform .4s ease, stroke .25s ease; }
+.brand-rail-logo { display: block; height: 16px; width: auto; max-width: 92px; margin-bottom: 8px; object-fit: contain; object-position: left center; opacity: .85; filter: grayscale(1) sepia(.35) saturate(1.6) brightness(.75); transition: opacity .25s ease, filter .25s ease; }
+html body.cinematic .brand-rail button:hover .brand-rail-emblem { transform: rotate(-18deg); }
+html body.cinematic .brand-rail button:hover .brand-rail-logo { opacity: 1; }
+html body.cinematic .brand-rail button.is-active .brand-rail-emblem { stroke: var(--hc-gold-soft, #dcc394); }
+html body.cinematic .brand-rail button.is-active .brand-rail-logo { filter: brightness(0) invert(.88) sepia(.4); opacity: 1; }
+html body.cinematic .brand-rail button:not([data-brand="all"]) { justify-content: flex-start; }
+html body.cinematic .brand-rail button[data-brand="all"] { justify-content: flex-end; }
+@media (prefers-reduced-motion: reduce) { .brand-rail-emblem { transition: none; } }
+html body.cinematic .brand-rail button[data-brand="all"] { justify-content: flex-start; }
+@media (max-width: 640px) { .brand-rail-list { margin: 0 !important; padding: 0 0 4px !important; } }

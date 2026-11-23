@@ -121,3 +121,11 @@ How to shoot it:
 3. Take **36 photos**, turning the turntable **10° each time** (24 photos at 15° also works). Keep the watch centred and never move the phone.
 4. Name them `01.jpg` … `36.jpg`, same size and crop, ideally 1600–2000 px tall. Put them in `assets/spin/<watch-name>/`.
 5. In the Studio, edit the product and paste the paths (one per line) into **360° spin photographs**. The "View 360°" option appears once every file exists.
+
+## Watch brand logos (optional)
+
+The Watches section shows a small gold emblem on each brand tile. To use a brand's
+own logo instead, add an official file you are permitted to use to `assets/brands/`,
+named after the brand: `rolex`, `patek-philippe`, `audemars-piguet`, `cartier`,
+`omega`, `richard-mille` or `vacheron-constantin`, with `.svg`, `.png` or `.webp`
+(for example `assets/brands/cartier.svg`). It appears automatically, shown small and toned to match the site.

@@ -618,6 +618,14 @@ function startMfaChallenge(principal) {
   return {mfaSetupRequired:true,challenge:staffAuth.createChallenge(principal.id,{setupSecret:secret}),username:principal.username,secret,otpauthUrl:staffAuth.otpauthUrl(principal.username,secret)};
 }
 // A product's 3D model is only advertised once the .glb actually exists on disk.
+
+// Optional watch-brand logos: drop an official file named after the brand
+// (e.g. assets/brands/cartier.svg or .png) and the Watches section shows it.
+function brandLogos() {
+  const dir=path.join(ROOT,'assets','brands'), out={};
+  try { for (const f of fs.readdirSync(dir)) { const m=f.match(/^([a-z0-9-]+)\.(svg|png|webp)$/); if (m) out[m[1]]=`/assets/brands/${f}`; } } catch {}
+  return out;
+}
 function modelAvailable(file) {
   const rel=String(file||'').replace(/^\/+/,'');
   if(!/^(assets|uploads)\/[\w\/.-]+\.glb$/i.test(rel)||rel.includes('..'))return false;
@@ -751,7 +759,7 @@ async function handleApi(req,res,url) {
     const production=process.env.NODE_ENV==='production';
     const checkoutAvailable=production?(liveKey?isLiveCheckoutReady():isTestCheckoutReady()):!!process.env.STRIPE_SECRET_KEY&&(liveKey?isLiveCheckoutReady():true);
     const products=db.products.filter(p=>p.published&&(process.env.NODE_ENV!=='production'||!p.isDemo));
-    return send(res,200,{products:products.map(publicProduct),collections:db.collections.filter(c=>c.active).map(({id,name,slug,description})=>({id,name,slug,description})),currency:db.settings.currency,storeName:db.settings.storeName,shippingCents:db.settings.shippingCents,paymentConfigured:!!process.env.STRIPE_SECRET_KEY,checkoutMode:stripeKeyMode()||'unconfigured',checkoutAvailable,vatRegistered:!!db.settings.vatRegistered});
+    return send(res,200,{brandLogos:brandLogos(),products:products.map(publicProduct),collections:db.collections.filter(c=>c.active).map(({id,name,slug,description})=>({id,name,slug,description})),currency:db.settings.currency,storeName:db.settings.storeName,shippingCents:db.settings.shippingCents,paymentConfigured:!!process.env.STRIPE_SECRET_KEY,checkoutMode:stripeKeyMode()||'unconfigured',checkoutAvailable,vatRegistered:!!db.settings.vatRegistered});
   }
   if (req.method==='GET' && route==='/api/product') {
     const p=db.products.find(x=>x.slug===url.searchParams.get('slug')&&x.published&&(process.env.NODE_ENV!=='production'||!x.isDemo)); return p?send(res,200,{product:publicProduct(p),collection:db.collections.find(c=>c.id===p.collectionId)?.name||''}):send(res,404,{error:'This piece is not available.'});
