@@ -100,3 +100,13 @@ The owner studio is now a staff studio with two roles and mandatory two-factor s
 The owner adds catalogue accounts in **Team** with a temporary password, and can set a new temporary password, reset a member's two-factor, or remove them (which signs them out immediately). Every staff member can create new recovery codes or move their authenticator to a new phone under **Security**.
 
 Staff accounts and two-factor settings are stored inside the existing owner record (`owner_credentials` JSONB in PostgreSQL, or `data/store.json` locally), so no database migration is needed. Security-relevant events (`staff_login_failed`, `staff_mfa_failed`, `staff_forbidden`, `staff_created`, …) are written to the server log.
+
+## 3D product viewer (watches)
+
+Watch pages can show an interactive 3D model next to the photographs: drag to turn (with momentum), pinch or Ctrl/⌘ + scroll to zoom, double-click to reset, arrow keys / + / − / 0 for keyboard users. It is a plain-JavaScript port of React Bits' `<ModelViewer />` (`model-viewer.js`) running on three.js, with studio lighting generated locally so nothing is fetched from other sites. It respects reduced-motion settings and pauses while off-screen.
+
+1. **three.js** — run `npm install three` once. The `postinstall` step (`scripts/vendor-three.js`) copies the few files the viewer needs into `vendor/three/`; Render runs the same step on every deploy.
+2. **A model** — add a licensed `.glb` file under `assets/3d/` (or upload it) and enter its path in the Studio product form under **3D model**, e.g. `assets/3d/rolex-gmt-master-ii-batgirl.glb`. Keep models web-sized (ideally under 10 MB, textures ≤ 2048 px).
+3. The product page shows **View in 3D** only once that file exists; pieces without photographs open straight into the 3D view.
+
+**Rolex section.** `shop.html?type=watch&brand=rolex` lists Rolex watches with its own header and a "Rolex" quick link. The GMT-Master II "Batgirl" (ref. 126710BLNR) is included as a sample listing (`isDemo`), so production hides it until its condition, year, box and papers, price and stock are verified and "Sample preview listing" is unticked in the Studio.

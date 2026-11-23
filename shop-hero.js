@@ -5,7 +5,8 @@
   const hero = document.querySelector('.page-hero--banner');
   if (!hero) return;
   const params = new URLSearchParams(location.search);
-  const key = (params.get('collection') || params.get('type') || 'all').toLowerCase();
+  const brand = (params.get('brand') || '').toLowerCase();
+  const key = brand === 'rolex' ? 'rolex' : (params.get('collection') || params.get('type') || 'all').toLowerCase();
   const category = (params.get('category') || '').toLowerCase();
   const categoryNames = { necklaces: 'Necklaces', pendants: 'Pendants', earrings: 'Earrings', bracelets: 'Bracelets', rings: 'Rings' };
 
@@ -39,6 +40,11 @@
       image: 'assets/catalogue/bullion-still-life-concept.jpg', focus: '50% 50%',
       eyebrow: 'PRECIOUS METALS · INVESTMENT', title: 'Gold and silver, <em>held close.</em>',
       lede: 'Gold and silver bars and coins, including limited-edition bullion. Ask us for current availability, specifications and item-specific documentation.',
+    },
+    rolex: {
+      image: 'emerald-background.png', focus: '50% 40%',
+      eyebrow: 'TIMEPIECES · ROLEX', title: 'Rolex, <em>considered.</em>',
+      lede: 'Explore Rolex watches and ask us about current models, condition, box and papers, availability and full specifications.',
     },
     watch: {
       image: 'assets/catalogue/emerald-dial-watch-concept.jpg', focus: '50% 45%',

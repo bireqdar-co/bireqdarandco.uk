@@ -171,6 +171,7 @@ function seed() {
     { id:'demo-sapphire-earrings', slug:'sapphire-earrings-concept', name:'Sapphire Earrings — Concept Listing', type:'jewellery', gemstoneType:'gemstone', category:'earrings', collectionId:'col-gemstones', short:'A deep-blue gemstone earring study in a fine, balanced setting.', description:'An AI-created sapphire-inspired concept, not a representation of certified gemstones or available stock. Verify stone identity, treatment, origin, dimensions, metal and price for any real piece.', priceCents:128000, stock:1, currency:'GBP', image:'/assets/catalogue/sapphire-ring-concept.jpg', published:true, isDemo:true, inquiryOnly:false, specifications:[{label:'Stone',value:'Sapphire-inspired concept'},{label:'Certification',value:'Not supplied'}] },
     { id:'demo-diamond-pendant-alt', slug:'diamond-pendant-concept', name:'Brilliant Pendant — Concept Listing', type:'jewellery', gemstoneType:'natural-diamond', category:'pendants', collectionId:'col-gemstones', short:'A delicate brilliant-cut pendant design study.', description:'The image is AI-created and does not confirm natural origin, grading, carat weight, setting metal, chain length, price or stock. All real product details must be verified before sale.', priceCents:142000, stock:1, currency:'GBP', image:'/assets/catalogue/diamond-studs-concept.jpg', published:true, isDemo:true, inquiryOnly:false, specifications:[{label:'Stone',value:'Unverified clear-stone concept'},{label:'Origin',value:'Not established'}] },
     { id:'demo-gold-bracelet', slug:'gold-bracelet-concept', name:'Gold Link Bracelet — Concept Listing', type:'jewellery', category:'bracelets', collectionId:'col-gold', short:'A considered link bracelet study with a warm brushed finish.', description:'Illustrative AI-created jewellery concept only. Confirm the metal alloy, clasp, dimensions, weight, price and availability for any actual product.', priceCents:168000, stock:1, currency:'GBP', image:'/assets/catalogue/silver-curve-bracelet.jpg', published:true, isDemo:true, inquiryOnly:false, specifications:[{label:'Style',value:'Link bracelet concept'},{label:'Finish',value:'Unverified gold-tone concept'}] },
+    { id:'demo-rolex-gmt-batgirl', slug:'rolex-gmt-master-ii-batgirl-126710blnr', name:'Rolex GMT-Master II “Batgirl” — Sample Listing', type:'watch', brand:'Rolex', category:'', collectionId:'col-watches', short:'Reference 126710BLNR · 40 mm Oystersteel · Jubilee bracelet.', description:'Sample listing for the Rolex GMT-Master II reference 126710BLNR, known to collectors as the “Batgirl”: a 40 mm Oystersteel Oyster case with a black dial, a bidirectional 24-hour bezel with a blue and black Cerachrom insert, and a five-piece-link Jubilee bracelet, powered by the self-winding calibre 3285 with GMT function. Condition, year, box and papers, price and availability are confirmed for the actual watch before it is offered.', priceCents:null, stock:0, currency:'GBP', image:'', images:[], model3d:'assets/3d/rolex-gmt-master-ii-batgirl.glb', published:true, isDemo:true, inquiryOnly:true, vatRate:20, specifications:[{label:'Reference',value:'126710BLNR'},{label:'Case',value:'Oyster, 40 mm, Oystersteel'},{label:'Dial',value:'Black'},{label:'Bezel',value:'Bidirectional 24-hour, blue and black Cerachrom insert'},{label:'Bracelet',value:'Jubilee, five-piece links'},{label:'Movement',value:'Calibre 3285, self-winding, GMT function'},{label:'Water resistance',value:'100 metres / 330 feet'}] },
     { id:'demo-watch-dress', slug:'dress-watch-concept', name:'Classic Dress Watch — Concept Listing', type:'watch', brand:'', category:'', collectionId:'col-watches', short:'A restrained dress-watch concept with an emerald-toned dial.', description:'Unbranded, AI-created watch artwork. It does not represent a specific maker, reference, movement, condition, authenticity, price or available stock.', priceCents:null, stock:0, currency:'GBP', image:'/assets/catalogue/emerald-dial-watch-concept.jpg', published:true, isDemo:true, inquiryOnly:true, specifications:[{label:'Category',value:'Dress-watch design concept'},{label:'Reference',value:'Not applicable'}] },
     { id:'demo-watch-sport', slug:'sport-watch-concept', name:'Sport Watch — Concept Listing', type:'watch', brand:'', category:'', collectionId:'col-watches', short:'A robust sport-watch design study in deep green and steel tones.', description:'AI-created, unbranded concept artwork only. No manufacturer, reference, movement, water resistance, authenticity, price or stock is represented; request verified details for real watches.', priceCents:null, stock:0, currency:'GBP', image:'/assets/catalogue/emerald-dial-watch-concept.jpg', published:true, isDemo:true, inquiryOnly:true, specifications:[{label:'Category',value:'Sport-watch design concept'},{label:'Specifications',value:'To be verified'}] },
     { id:'demo-silver-bar-100g', slug:'silver-bar-concept-100g', name:'Silver Bar 100 g — Enquiry Concept', type:'bullion', bullionType:'silver-bar', category:'', collectionId:'col-bullion', short:'An enquiry-only concept listing for a 100 g silver bar.', description:'Generic AI-created bullion still life. No specific producer, purity, assay, weight, price, tax treatment or stock is represented. Confirm details directly before any transaction.', priceCents:null, stock:0, currency:'GBP', image:'/assets/catalogue/bullion-still-life-concept.jpg', published:true, isDemo:true, inquiryOnly:true, specifications:[{label:'Illustrative weight',value:'100 g concept only'},{label:'Purity',value:'Unverified'}] },
@@ -342,6 +343,12 @@ async function loadDb() {
     }
     db.version=12;migrated=true;
   }
+  if(Number(db.version||0)<13){
+    // Rolex section: add the GMT-Master II "Batgirl" sample listing (hidden in production while isDemo).
+    const rolex=seed().products.find(item=>item.id==='demo-rolex-gmt-batgirl');
+    if(rolex&&!db.products.some(item=>item.id===rolex.id||item.slug===rolex.slug))db.products.push(rolex);
+    db.version=13;migrated=true;
+  }
   for(const p of db.products){if(!Number.isFinite(Number(p.vatRate))){p.vatRate=20;migrated=true;}if(p.brand===undefined){p.brand='';migrated=true;}if(p.bullionType===undefined){p.bullionType='';migrated=true;}if(p.gemstoneType===undefined){p.gemstoneType='';migrated=true;}}
   for (const key of Object.keys(db.sessions)) {
     if (!/^[a-f0-9]{64}$/.test(key)) { db.sessions[tokenHash(key)] = db.sessions[key]; delete db.sessions[key]; migrated = true; }
@@ -497,7 +504,7 @@ function validPhone(value) { const phone=String(value||'').trim();if(!phone)retu
 function validPostalCode(value) { const postal=String(value||'').trim();return /^[A-Z0-9][A-Z0-9 -]{1,18}[A-Z0-9]$/i.test(postal); }
 function validCountry(value) { return /^[\p{L}\p{M} .,'’()-]{2,80}$/u.test(String(value||'').trim()); }
 function publicProduct(p) {
-  return { id:p.id, slug:p.slug, name:p.name, type:p.type, category:p.category||'', collectionId:p.collectionId, short:p.short, description:p.description, priceCents:p.priceCents, stock:p.stock, currency:p.currency || db.settings.currency, image:p.image, images:Array.isArray(p.images)?p.images:[], finishOptions:Array.isArray(p.finishOptions)?p.finishOptions:[], inquiryOnly:!!p.inquiryOnly, isDemo:!!p.isDemo, specifications:Array.isArray(p.specifications)?p.specifications:[], vatRate:Number.isFinite(Number(p.vatRate))?Number(p.vatRate):20, brand:p.brand||'', bullionType:p.bullionType||'', gemstoneType:p.gemstoneType||'' };
+  return { id:p.id, slug:p.slug, name:p.name, type:p.type, category:p.category||'', collectionId:p.collectionId, short:p.short, description:p.description, priceCents:p.priceCents, stock:p.stock, currency:p.currency || db.settings.currency, image:p.image, images:Array.isArray(p.images)?p.images:[], finishOptions:Array.isArray(p.finishOptions)?p.finishOptions:[], inquiryOnly:!!p.inquiryOnly, isDemo:!!p.isDemo, specifications:Array.isArray(p.specifications)?p.specifications:[], vatRate:Number.isFinite(Number(p.vatRate))?Number(p.vatRate):20, brand:p.brand||'', bullionType:p.bullionType||'', gemstoneType:p.gemstoneType||'', model3d:modelAvailable(p.model3d)?p.model3d:'' };
 }
 function sessionFrom(req) {
   const cookie=String(req.headers.cookie||'').split(';').map(v=>v.trim()).find(v=>v.startsWith('bireqdar_session='));
@@ -596,6 +603,13 @@ function startMfaChallenge(principal) {
   const secret=staffAuth.newSecret();
   return {mfaSetupRequired:true,challenge:staffAuth.createChallenge(principal.id,{setupSecret:secret}),username:principal.username,secret,otpauthUrl:staffAuth.otpauthUrl(principal.username,secret)};
 }
+// A product's 3D model is only advertised once the .glb actually exists on disk.
+function modelAvailable(file) {
+  const rel=String(file||'').replace(/^\/+/,'');
+  if(!/^(assets|uploads)\/[\w\/.-]+\.glb$/i.test(rel)||rel.includes('..'))return false;
+  const full=rel.startsWith('uploads/')?path.join(UPLOAD_DIR,rel.slice(8)):path.join(ROOT,rel);
+  try{return fsSync.statSync(full).isFile();}catch{return false;}
+}
 function productInput(input, existing=null) {
   const name=clean(input.name,120);
   const type=clean(input.type,24);
@@ -618,11 +632,13 @@ function productInput(input, existing=null) {
   if(![0,20].includes(vatRate))throw Object.assign(new Error('Choose a VAT rate of 20% or 0% for an applicable exemption/zero rate.'),{status:400});
   const collectionId=clean(input.collectionId,100);
   if (collectionId && !db.collections.some(c=>c.id===collectionId)) throw Object.assign(new Error('Choose an existing collection.'),{status:400});
+  const model3d=clean(input.model3d,200);
+  if (model3d && !/^\/?(assets|uploads)\/[\w\/.-]+\.glb$/i.test(model3d)) throw Object.assign(new Error('The 3D model must be a .glb file inside assets/ or uploads/, for example assets/3d/watch.glb.'),{status:400});
   return {
     ...(existing||{}), id:existing?.id || id(), slug:existing?.slug || `${slugify(name)}-${crypto.randomBytes(2).toString('hex')}`,
     name, type, category, collectionId, vatRate, brand:type==='watch'?brand:'', bullionType:type==='bullion'?bullionType:'', gemstoneType:type==='jewellery'?gemstoneType:'', short:clean(input.short,220), description:clean(input.description,5000),
     priceCents:inquiryOnly?null:rawPrice, stock:Math.max(0,Math.min(100000,Math.floor(Number(input.stock)||0))), currency,
-    image:clean(input.image,1000), published:!!input.published, isDemo:!!input.isDemo, inquiryOnly,
+    image:clean(input.image,1000), model3d, published:!!input.published, isDemo:!!input.isDemo, inquiryOnly,
     finishOptions,
     specifications:Array.isArray(input.specifications)?input.specifications.slice(0,20).filter(x=>x&&typeof x==='object'&&!Array.isArray(x)).map(x=>({label:clean(x.label,60),value:clean(x.value,160)})).filter(x=>x.label&&x.value):[]
   };
@@ -1076,7 +1092,7 @@ async function handleApi(req,res,url) {
 }
 // Serve only files under the public project/upload roots; block private store files.
 function mime(file) {
-  const ext=path.extname(file).toLowerCase();return ({'.html':'text/html; charset=utf-8','.css':'text/css; charset=utf-8','.js':'text/javascript; charset=utf-8','.json':'application/json; charset=utf-8','.png':'image/png','.jpg':'image/jpeg','.jpeg':'image/jpeg','.svg':'image/svg+xml','.webp':'image/webp'})[ext]||'application/octet-stream';
+  const ext=path.extname(file).toLowerCase();return ({'.html':'text/html; charset=utf-8','.css':'text/css; charset=utf-8','.js':'text/javascript; charset=utf-8','.json':'application/json; charset=utf-8','.png':'image/png','.jpg':'image/jpeg','.jpeg':'image/jpeg','.svg':'image/svg+xml','.webp':'image/webp','.glb':'model/gltf-binary','.mjs':'text/javascript; charset=utf-8'})[ext]||'application/octet-stream';
 }
 async function staticFile(req,res,url) {
   let pathname;
@@ -1092,7 +1108,7 @@ async function staticFile(req,res,url) {
   }
   const normalizedPath=pathname.toLowerCase();
   const blockedFiles=new Set(['/server.js','/postgres-store.js','/staff-auth.js','/package.json','/package-lock.json','/yarn.lock','/pnpm-lock.yaml','/render.yaml','/readme.md']);
-  if(normalizedPath.startsWith('/data/')||normalizedPath.startsWith('/db/')||normalizedPath.startsWith('/node_modules/')||normalizedPath.startsWith('/.')||blockedFiles.has(normalizedPath))return text(res,404,'Not found.');
+  if(normalizedPath.startsWith('/data/')||normalizedPath.startsWith('/db/')||normalizedPath.startsWith('/node_modules/')||normalizedPath.startsWith('/scripts/')||normalizedPath.startsWith('/.')||blockedFiles.has(normalizedPath))return text(res,404,'Not found.');
   const isUpload=pathname.startsWith('/uploads/');
   const base=isUpload?UPLOAD_DIR:ROOT;
   const relative=isUpload?pathname.slice('/uploads/'.length):pathname.slice(1);

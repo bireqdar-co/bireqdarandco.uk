@@ -4,7 +4,9 @@
   "private": true,
   "type": "commonjs",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "postinstall": "node scripts/vendor-three.js",
+    "vendor:three": "node scripts/vendor-three.js"
   },
   "engines": {
     "node": ">=22"
@@ -12,7 +14,8 @@
   "dependencies": {
     "argon2": "0.45.1",
     "google-auth-library": "^11.3.3",
-    "pg": "^8.16.3"
+    "pg": "^8.16.3",
+    "three": "^0.187.0"
   },
   "allowScripts": {
     "argon2@0.45.1": true
