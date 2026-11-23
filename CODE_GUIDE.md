@@ -11,7 +11,7 @@ This is a small Node.js storefront. The browser renders the pages and catalogue;
 | Piece details | `product.html`, `product.js` | Loads one published piece by its URL slug |
 | Customer journeys | `account.html`, `account.js`, `cart.html`, `cart.js`, `checkout.html`, `checkout.js`, `order.html`, `order.js` | Account access, bag, checkout and order status |
 | Enquiries | `contact.html`, `contact.js`, `bespoke.html`, `bespoke.js`, `watch.html` | Contact, bespoke commission and watch enquiries |
-| Owner tools | `admin.html`, `admin.js`, `admin.css` | Protected catalogue, order, enquiry and analytics management |
+| Staff studio | `admin.html`, `admin.js`, `admin.css`, `admin-studio.css`, `staff-auth.js` | Private-address studio with two-factor sign-in; owner sees everything, catalogue team manages products and stock |
 | Server and storage | `server.js`, `postgres-store.js`, `db/schema.sql` | API routes, validation, sessions, database reads/writes and payment checks |
 | Deployment | `render.yaml`, `.env.example`, `README.md` | Render settings, local configuration and launch steps |
 

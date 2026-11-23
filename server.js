@@ -21,11 +21,22 @@ const PORT = Number(process.env.PORT || 3000);
 // Render routes public traffic to 0.0.0.0; keep this as the default if HOST isn't configured.
 const HOST = process.env.HOST || '0.0.0.0';
 const APP_URL = process.env.APP_URL || process.env.RENDER_EXTERNAL_URL || '';
+const staffAuth = require('./staff-auth');
+// Staff studio address. Set ADMIN_PATH to a long private slug (letters, digits,
+// "-" or "_", at least 16 characters); the studio is then served only at
+// /<ADMIN_PATH> and /admin.html returns "Not found". Without it, /admin.html is
+// available for local development only.
+const ADMIN_PATH = (() => {
+  const raw = String(process.env.ADMIN_PATH || '').trim().replace(/^\/+|\/+$/g, '');
+  return /^[A-Za-z0-9_-]{16,128}$/.test(raw) ? raw : '';
+})();
+const STAFF_SESSION_MS = 1000 * 60 * 60 * 8;
 const GOOGLE_CLIENT_ID = String(process.env.GOOGLE_CLIENT_ID || '').trim();
 const googleAuthClient = GOOGLE_CLIENT_ID ? new OAuth2Client(GOOGLE_CLIENT_ID) : null;
 const MAX_BODY = 7 * 1024 * 1024;
 const allowedCurrencies = new Set(['GBP', 'EUR', 'USD']);
 const allowedCustomerTitles = new Set(['', 'Mr', 'Mrs', 'Miss', 'Ms', 'Mx', 'Dr', 'Prof', 'Other']);
+let staffStudioLogged = false;
 let setupKeyLogged = false;
 // Accept either a standard secret key or a restricted key; keep test/live checks centralized.
 function stripeKeyMode(key = process.env.STRIPE_SECRET_KEY) {
@@ -344,6 +355,13 @@ async function loadDb() {
     else console.log(`Owner setup key: ${db.setupKey || 'set ADMIN_SETUP_KEY in the environment'}`);
     setupKeyLogged = true;
   }
+  if (!staffStudioLogged) {
+    staffStudioLogged = true;
+    if (ADMIN_PATH) console.log('Staff studio is served from the private ADMIN_PATH address; /admin.html is disabled.');
+    else if (process.env.NODE_ENV==='production') console.error('ADMIN_PATH is not set: the staff studio is unavailable. Set ADMIN_PATH to a private slug of at least 16 letters/digits.');
+    else console.log('Staff studio: http://localhost:'+PORT+'/admin.html (development only — set ADMIN_PATH to use a private address).');
+    if (!staffAuth.hasEncryptionKey()) console.log('Tip: set STAFF_MFA_KEY to encrypt authenticator secrets at rest.');
+  }
 }
 function saveDb() {
   // Capture a consistent point-in-time snapshot before waiting behind previous writes.
@@ -405,6 +423,7 @@ function enforceRateLimit(req,res,key,limit,windowMs,route=req.url) {
 function ratePolicy(method,route) {
   if(method==='POST'&&route==='/api/admin/setup')return {bucket:'owner-setup',limit:3,window:60*60*1000};
   if(method==='POST'&&route==='/api/admin/login')return {bucket:'owner-login',limit:8,window:15*60*1000};
+  if(method==='POST'&&route==='/api/admin/mfa/verify')return {bucket:'staff-mfa',limit:15,window:15*60*1000};
   if(method==='POST'&&['/api/account/login','/api/account/register','/api/account/google'].includes(route))return {bucket:'customer-auth',limit:8,window:15*60*1000};
   if(method==='POST'&&['/api/account/verify-email','/api/account/resend-verification'].includes(route))return {bucket:'account-verification',limit:5,window:60*60*1000};
   if(method==='POST'&&route==='/api/account/address')return {bucket:'account-address',limit:20,window:60*60*1000};
@@ -531,10 +550,51 @@ function adminCustomerRows() {
 function customerCookie(token,maxAge=2592000) { const secure=APP_URL.startsWith('https://')?' Secure;':'';return `bireqdar_customer_session=${encodeURIComponent(token)}; HttpOnly; SameSite=Lax; Path=/; Max-Age=${maxAge};${secure}`; }
 function adminCookie(token,maxAge=43200) { const secure=APP_URL.startsWith('https://')?' Secure;':'';return `bireqdar_session=${encodeURIComponent(token)}; HttpOnly; SameSite=Strict; Path=/; Max-Age=${maxAge};${secure}`; }
 function issueCustomerSession(customer) { const token=crypto.randomBytes(32).toString('hex');db.customerSessions[tokenHash(token)]={customerId:customer.id,expiresAt:Date.now()+30*24*60*60*1000};return token; }
-function requireAdmin(req,res) {
+// ---- Staff accounts: one owner (db.admin) plus worker accounts in db.admin.staff.
+function staffList() { if(!db.admin)return []; if(!Array.isArray(db.admin.staff))db.admin.staff=[]; return db.admin.staff; }
+function sessionPrincipals() { if(!db.admin)return {}; if(!db.admin.sessionPrincipals||typeof db.admin.sessionPrincipals!=='object')db.admin.sessionPrincipals={}; return db.admin.sessionPrincipals; }
+function principalById(staffId) {
+  if(!db.admin)return null;
+  if(staffId==='owner')return {id:'owner',username:db.admin.username,role:'owner',record:db.admin};
+  const member=staffList().find(x=>x.id===staffId);
+  return member?{id:member.id,username:member.username,role:member.role==='owner'?'owner':'worker',record:member}:null;
+}
+function principalByUsername(username) {
+  if(!db.admin||!username)return null;
+  if(username===db.admin.username)return principalById('owner');
+  const member=staffList().find(x=>x.username.toLowerCase()===String(username).toLowerCase());
+  return member?principalById(member.id):null;
+}
+function pruneStaffSessions() {
+  const map=sessionPrincipals(),now=Date.now();
+  for(const key of Object.keys(db.sessions)){if(!(db.sessions[key]>now)||!map[key]){delete db.sessions[key];delete map[key];}}
+  for(const key of Object.keys(map))if(!db.sessions[key])delete map[key];
+}
+function issueStaffSession(principal) {
+  pruneStaffSessions();
+  const token=crypto.randomBytes(32).toString('hex'),key=tokenHash(token);
+  db.sessions[key]=Date.now()+STAFF_SESSION_MS; sessionPrincipals()[key]=principal.id;
+  return token;
+}
+function endStaffSessions(staffId) { const map=sessionPrincipals(); for(const [key,value] of Object.entries(map))if(value===staffId){delete map[key];delete db.sessions[key];} }
+// Returns the signed-in staff member, or sends 401/403 and returns null.
+function requireAdmin(req,res,role=null) {
   const token=sessionFrom(req); const expires=db.sessions[token];
-  if (!token || !expires || expires < Date.now()) { if (token) { delete db.sessions[token]; saveDb(); } send(res,401,{error:'Please sign in to the owner area.'}); return false; }
-  return true;
+  const principal=token&&expires&&expires>=Date.now()?principalById(sessionPrincipals()[token]):null;
+  if (!principal||!principal.record.mfa?.enabledAt) {
+    if (token&&db.sessions[token]) { delete db.sessions[token]; delete sessionPrincipals()[token]; saveDb(); }
+    send(res,401,{error:'Please sign in to the studio.'}); return null;
+  }
+  if (role==='owner'&&principal.role!=='owner') { securityEvent(req,'staff_forbidden',{staffId:principal.id,route:req.url}); send(res,403,{error:'Your studio role does not include this area.'}); return null; }
+  return principal;
+}
+function staffPublic(member) { return {id:member.id,username:member.username,role:member.role==='owner'?'owner':'worker',createdAt:member.createdAt,mfaEnabled:!!member.mfa?.enabledAt,lastSignInAt:member.lastSignInAt||null}; }
+// Password accepted: ask for the authenticator code, or start authenticator setup.
+function startMfaChallenge(principal) {
+  const record=principal.record;
+  if (record.mfa?.enabledAt) return {mfaRequired:true,challenge:staffAuth.createChallenge(principal.id),username:principal.username};
+  const secret=staffAuth.newSecret();
+  return {mfaSetupRequired:true,challenge:staffAuth.createChallenge(principal.id,{setupSecret:secret}),username:principal.username,secret,otpauthUrl:staffAuth.otpauthUrl(principal.username,secret)};
 }
 function productInput(input, existing=null) {
   const name=clean(input.name,120);
@@ -903,26 +963,81 @@ async function handleApi(req,res,url) {
       const b=await readJson(req); if (!db.setupKey || !safeEqual(b.setupKey,db.setupKey)) { securityEvent(req,'owner_setup_failed');return send(res,403,{error:'Setup key does not match. Start the owner setup using the key shown by the server.'}); }
       const username=clean(b.username,50), password=String(b.password||'');
       if (!/^[a-zA-Z0-9._-]{3,50}$/.test(username)||password.length<12||password.length>200) return send(res,400,{error:'Use a 3–50 character username and a password of at least 12 characters.'});
-      db.admin={username,passwordHash:await hashPassword(password),createdAt:new Date().toISOString()}; db.setupKey=null;
-      const token=crypto.randomBytes(32).toString('hex'); db.sessions[tokenHash(token)]=Date.now()+1000*60*60*12; await saveDb();
-      return send(res,201,{ok:true,username},{'Set-Cookie':adminCookie(token)});
+      db.admin={username,passwordHash:await hashPassword(password),createdAt:new Date().toISOString(),staff:[],sessionPrincipals:{}}; db.setupKey=null; await saveDb();
+      securityEvent(req,'owner_setup_completed');
+      return send(res,201,startMfaChallenge(principalById('owner')));
     }
     if (req.method==='POST'&&route==='/api/admin/login') {
       const b=await readJson(req); const username=clean(b.username,50),password=String(b.password||'');
       if(!enforceRateLimit(req,res,`owner-account-login:${username.toLowerCase()}`,5,15*60*1000,route))return;
       if(password.length<1||password.length>200)return send(res,400,{error:'The username or password is incorrect.'});
-      const verified=db.admin&&username===db.admin.username?await verifyPassword(db.admin,password):{valid:false};
-      if (!verified.valid) { securityEvent(req,'owner_login_failed');return send(res,401,{error:'The username or password is incorrect.'}); }
-      if(verified.rehash){db.admin.passwordHash=verified.rehash;delete db.admin.salt;delete db.admin.hash;}
-      const token=crypto.randomBytes(32).toString('hex');db.sessions[tokenHash(token)]=Date.now()+1000*60*60*12;await saveDb();securityEvent(req,'owner_login_succeeded');
-      return send(res,200,{ok:true,username},{'Set-Cookie':adminCookie(token)});
+      const principal=principalByUsername(username);
+      const verified=principal?await verifyPassword(principal.record,password):{valid:false};
+      if (!verified.valid) { securityEvent(req,'staff_login_failed');return send(res,401,{error:'The username or password is incorrect.'}); }
+      if(verified.rehash){principal.record.passwordHash=verified.rehash;delete principal.record.salt;delete principal.record.hash;await saveDb();}
+      securityEvent(req,'staff_password_accepted',{staffId:principal.id});
+      return send(res,200,startMfaChallenge(principal));
     }
-    if (req.method==='POST'&&route==='/api/admin/logout') { const token=sessionFrom(req);delete db.sessions[token];await saveDb();securityEvent(req,'owner_logout');return send(res,200,{ok:true},{'Set-Cookie':adminCookie('',0)}); }
-    if (req.method==='GET'&&route==='/api/admin/me') { if(!requireAdmin(req,res))return;return send(res,200,{username:db.admin.username}); }
-    if (!requireAdmin(req,res)) return;
-    if(['POST','PUT','PATCH','DELETE'].includes(req.method))securityEvent(req,'owner_mutation',{route,method:req.method});
+    if (req.method==='POST'&&route==='/api/admin/mfa/verify') {
+      const b=await readJson(req); const challengeId=String(b.challenge||''); const challenge=staffAuth.readChallenge(challengeId);
+      if(!challenge)return send(res,401,{error:'This sign-in has expired. Please enter your password again.'});
+      if(!enforceRateLimit(req,res,`staff-mfa:${challenge.principalId}`,10,15*60*1000,route))return;
+      const principal=principalById(challenge.principalId);
+      if(!principal){staffAuth.dropChallenge(challengeId);return send(res,401,{error:'This sign-in has expired. Please enter your password again.'});}
+      challenge.attempts+=1;
+      if(challenge.attempts>5){staffAuth.dropChallenge(challengeId);securityEvent(req,'staff_mfa_locked',{staffId:principal.id});return send(res,401,{error:'Too many incorrect codes. Please sign in again.'});}
+      const record=principal.record; let recoveryCodes=null;
+      if (challenge.setupSecret) {
+        const step=staffAuth.verifyTotp(challenge.setupSecret,b.code);
+        if(step===null){securityEvent(req,'staff_mfa_setup_failed',{staffId:principal.id});return send(res,401,{error:'That code did not match. Check the time on your phone and try the newest code.'});}
+        const generated=staffAuth.newRecoveryCodes();
+        record.mfa={secret:staffAuth.sealSecret(challenge.setupSecret),enabledAt:new Date().toISOString(),lastStep:step};
+        record.recoveryCodes=generated.hashes; recoveryCodes=generated.codes;
+        securityEvent(req,'staff_mfa_enabled',{staffId:principal.id});
+      } else {
+        let secret=''; try{secret=staffAuth.openSecret(record.mfa?.secret);}catch{securityEvent(req,'staff_mfa_secret_unreadable',{staffId:principal.id});}
+        const step=secret?staffAuth.verifyTotp(secret,b.code,record.mfa.lastStep??null):null;
+        if(step!==null) record.mfa.lastStep=step;
+        else if(staffAuth.consumeRecoveryCode(record,b.code)) securityEvent(req,'staff_recovery_code_used',{staffId:principal.id,remaining:record.recoveryCodes.length});
+        else {securityEvent(req,'staff_mfa_failed',{staffId:principal.id});return send(res,401,{error:'That code did not match. Enter the current 6-digit code from your authenticator app, or a recovery code.'});}
+      }
+      staffAuth.dropChallenge(challengeId); record.lastSignInAt=new Date().toISOString();
+      const token=issueStaffSession(principal); await saveDb(); securityEvent(req,'staff_login_succeeded',{staffId:principal.id,role:principal.role});
+      return send(res,200,{ok:true,username:principal.username,role:principal.role,recoveryCodes},{'Set-Cookie':adminCookie(token,STAFF_SESSION_MS/1000)});
+    }
+    if (req.method==='POST'&&route==='/api/admin/logout') { const token=sessionFrom(req);delete db.sessions[token];delete sessionPrincipals()[token];await saveDb();securityEvent(req,'staff_logout');return send(res,200,{ok:true},{'Set-Cookie':adminCookie('',0)}); }
+    if (req.method==='GET'&&route==='/api/admin/me') { const me=requireAdmin(req,res);if(!me)return;return send(res,200,{username:me.username,role:me.role,recoveryCodesRemaining:Array.isArray(me.record.recoveryCodes)?me.record.recoveryCodes.length:0}); }
+    const me=requireAdmin(req,res); if (!me) return;
+    if(['POST','PUT','PATCH','DELETE'].includes(req.method))securityEvent(req,'staff_mutation',{route,method:req.method,staffId:me.id,role:me.role});
+    // Workers manage the catalogue only: products, images and stock.
+    const workerRoute=(req.method==='GET'&&route==='/api/admin/data')
+      ||(req.method==='POST'&&['/api/admin/upload','/api/admin/products','/api/admin/account/recovery-codes','/api/admin/account/reset-mfa'].includes(route))
+      ||/^\/api\/admin\/products\/[^/]+(\/stock)?$/.test(route);
+    if (me.role!=='owner'&&!workerRoute) { securityEvent(req,'staff_forbidden',{staffId:me.id,route}); return send(res,403,{error:'Your studio role does not include this area.'}); }
+    if (req.method==='POST'&&route==='/api/admin/account/recovery-codes') { const b=await readJson(req);const verified=await verifyPassword(me.record,String(b.password||''));if(!verified.valid){securityEvent(req,'staff_recovery_regen_failed',{staffId:me.id});return send(res,401,{error:'Your password is incorrect.'});}const generated=staffAuth.newRecoveryCodes();me.record.recoveryCodes=generated.hashes;await saveDb();return send(res,200,{recoveryCodes:generated.codes}); }
+    if (req.method==='POST'&&route==='/api/admin/account/reset-mfa') { const b=await readJson(req);const verified=await verifyPassword(me.record,String(b.password||''));if(!verified.valid){securityEvent(req,'staff_self_mfa_reset_failed',{staffId:me.id});return send(res,401,{error:'Your password is incorrect.'});}delete me.record.mfa;delete me.record.recoveryCodes;endStaffSessions(me.id);await saveDb();securityEvent(req,'staff_self_mfa_reset',{staffId:me.id});return send(res,200,{ok:true},{'Set-Cookie':adminCookie('',0)}); }
+    if (req.method==='GET'&&route==='/api/admin/data'&&me.role!=='owner') return send(res,200,{products:db.products,collections:db.collections,settings:{currency:db.settings.currency},username:me.username,role:me.role});
+    if (req.method==='GET'&&route==='/api/admin/staff') return send(res,200,{owner:{username:db.admin.username,mfaEnabled:!!db.admin.mfa?.enabledAt,lastSignInAt:db.admin.lastSignInAt||null},staff:staffList().map(staffPublic)});
+    if (req.method==='POST'&&route==='/api/admin/staff') {
+      const b=await readJson(req); const username=clean(b.username,50), password=String(b.password||'');
+      if (!/^[a-zA-Z0-9._-]{3,50}$/.test(username)||password.length<12||password.length>200) return send(res,400,{error:'Use a 3–50 character username (letters, numbers, . _ -) and a temporary password of at least 12 characters.'});
+      if (principalByUsername(username)) return send(res,409,{error:'That username is already in use.'});
+      const member={id:id(),username,role:'worker',passwordHash:await hashPassword(password),createdAt:new Date().toISOString(),createdBy:me.id};
+      staffList().push(member); await saveDb(); securityEvent(req,'staff_created',{staffId:member.id,by:me.id});
+      return send(res,201,{member:staffPublic(member)});
+    }
+    const staffRoute=route.match(/^\/api\/admin\/staff\/([^/]+)(\/reset-mfa|\/password)?$/);
+    if (staffRoute) {
+      const member=staffList().find(x=>x.id===staffRoute[1]); if(!member)return send(res,404,{error:'Team member not found.'});
+      if (req.method==='DELETE'&&!staffRoute[2]) { db.admin.staff=staffList().filter(x=>x.id!==member.id); endStaffSessions(member.id); await saveDb(); securityEvent(req,'staff_removed',{staffId:member.id,by:me.id}); return send(res,200,{ok:true}); }
+      if (req.method==='POST'&&staffRoute[2]==='/reset-mfa') { delete member.mfa; delete member.recoveryCodes; endStaffSessions(member.id); await saveDb(); securityEvent(req,'staff_mfa_reset',{staffId:member.id,by:me.id}); return send(res,200,{member:staffPublic(member)}); }
+      if (req.method==='POST'&&staffRoute[2]==='/password') { const b=await readJson(req);const password=String(b.password||'');if(password.length<12||password.length>200)return send(res,400,{error:'Use a temporary password of at least 12 characters.'});member.passwordHash=await hashPassword(password);endStaffSessions(member.id);await saveDb();securityEvent(req,'staff_password_reset',{staffId:member.id,by:me.id});return send(res,200,{member:staffPublic(member)}); }
+      return send(res,405,{error:'Method not allowed.'});
+    }
+    const stockRoute=route.match(/^\/api\/admin\/products\/([^/]+)\/stock$/);
+    if (stockRoute&&req.method==='PATCH') { const b=await readJson(req);const p=db.products.find(x=>x.id===stockRoute[1]);if(!p)return send(res,404,{error:'Product not found.'});const delta=Number(b.delta);if(!Number.isInteger(delta)||Math.abs(delta)>1000)return send(res,400,{error:'Enter a whole-number stock change.'});p.stock=Math.max(0,Math.min(100000,(Number(p.stock)||0)+delta));await saveDb();return send(res,200,{product:p}); }
     if (req.method==='DELETE'&&route==='/api/admin/demo-data') { const ordersBefore=db.orders.length,reservationsBefore=db.reservations.length;db.orders=db.orders.filter(item=>!item.isDemo);db.reservations=db.reservations.filter(item=>!item.isDemo);await saveDb();return send(res,200,{ok:true,removedOrders:ordersBefore-db.orders.length,removedEnquiries:reservationsBefore-db.reservations.length}); }
-    if (req.method==='GET'&&route==='/api/admin/data') return send(res,200,{products:db.products,collections:db.collections,orders:db.orders,reservations:db.reservations,customers:adminCustomerRows(),settings:db.settings,customerCount:db.customers.length,username:db.admin.username});
+    if (req.method==='GET'&&route==='/api/admin/data') return send(res,200,{products:db.products,collections:db.collections,orders:db.orders,reservations:db.reservations,customers:adminCustomerRows(),settings:db.settings,customerCount:db.customers.length,username:me.username,role:me.role});
     if (req.method==='PUT'&&route==='/api/admin/settings') { const b=await readJson(req);const cur=String(b.currency||'').toUpperCase();if(!allowedCurrencies.has(cur))return send(res,400,{error:'Choose GBP, EUR or USD.'});const ship=b.shippingCents===''||b.shippingCents===null?null:Number(b.shippingCents);if(ship!==null&&(!Number.isInteger(ship)||ship<0||ship>10000000))return send(res,400,{error:'Enter a valid delivery fee, or leave it blank until decided.'});db.settings.currency=cur;for (const p of db.products) p.currency=cur;db.settings.shippingCents=ship;db.settings.automaticTaxEnabled=!!b.automaticTaxEnabled;db.settings.vatRegistered=!!b.vatRegistered;await saveDb();return send(res,200,{ok:true}); }
     if (req.method==='POST'&&route==='/api/admin/upload') { const b=await readJson(req);const image=await persistImage(b.data);return send(res,201,{image}); }
     if (req.method==='POST'&&route==='/api/admin/products') { const b=await readJson(req);const p=productInput(b);db.products.unshift(p);await saveDb();return send(res,201,{product:p}); }
@@ -968,8 +1083,15 @@ async function staticFile(req,res,url) {
   try { pathname=decodeURIComponent(url.pathname); }
   catch { return text(res,400,'Bad request.'); }
   if(pathname==='/')pathname='/index.html';
+  // The staff studio is served only from its private address (see ADMIN_PATH).
+  const studioRequest=ADMIN_PATH&&pathname.replace(/\/+$/,'')===`/${ADMIN_PATH}`;
+  if(pathname.toLowerCase()==='/admin.html'&&(ADMIN_PATH||process.env.NODE_ENV==='production'))return text(res,404,'Not found.');
+  if(studioRequest){
+    res.setHeader('X-Robots-Tag','noindex, nofollow');res.setHeader('Cache-Control','no-store');
+    pathname='/admin.html';
+  }
   const normalizedPath=pathname.toLowerCase();
-  const blockedFiles=new Set(['/server.js','/postgres-store.js','/package.json','/package-lock.json','/yarn.lock','/pnpm-lock.yaml','/render.yaml','/readme.md']);
+  const blockedFiles=new Set(['/server.js','/postgres-store.js','/staff-auth.js','/package.json','/package-lock.json','/yarn.lock','/pnpm-lock.yaml','/render.yaml','/readme.md']);
   if(normalizedPath.startsWith('/data/')||normalizedPath.startsWith('/db/')||normalizedPath.startsWith('/node_modules/')||normalizedPath.startsWith('/.')||blockedFiles.has(normalizedPath))return text(res,404,'Not found.');
   const isUpload=pathname.startsWith('/uploads/');
   const base=isUpload?UPLOAD_DIR:ROOT;
@@ -986,7 +1108,7 @@ async function staticFile(req,res,url) {
   if(!stat.isFile())return text(res,404,'Not found.');
   try { const [realBase,realFile]=await Promise.all([fs.realpath(base),fs.realpath(full)]);if(realFile!==realBase&&!realFile.startsWith(realBase+path.sep))return text(res,403,'Forbidden.'); }
   catch { return text(res,404,'Not found.'); }
-  res.writeHead(200,{'Content-Type':mime(full),'Cache-Control':full.includes(`${path.sep}uploads${path.sep}`)?'public, max-age=31536000, immutable':'no-cache'});
+  res.writeHead(200,{'Content-Type':mime(full),'Cache-Control':studioRequest?'no-store':full.includes(`${path.sep}uploads${path.sep}`)?'public, max-age=31536000, immutable':'no-cache'});
   const stream=fsSync.createReadStream(full);
   stream.on('error',err=>{
     console.error(JSON.stringify({event:'static_stream_error',code:err.code||'unknown'}));

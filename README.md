@@ -15,7 +15,7 @@ npm start
 
 Without `DATABASE_URL`, local development uses `data/store.json`. For a local PostgreSQL database, copy `.env.example` to `.env`, set `DATABASE_URL`, and start the app. On first connection, if PostgreSQL has no store state, the app migrates the existing local JSON store into PostgreSQL; if neither exists it creates sample collections and products. PostgreSQL becomes the primary store after initialization. The uploads folder still needs durable disk storage.
 
-The first local run prints an owner setup key. In production, retrieve `ADMIN_SETUP_KEY` from the Render environment settings; production logs do not reveal it. Use the one-time key at `/admin.html` to create the owner login. Do not commit `.env`, database credentials, email or Stripe keys, customer information or order exports.
+The first local run prints an owner setup key. In production, retrieve `ADMIN_SETUP_KEY` from the Render environment settings; production logs do not reveal it. Use the one-time key at the staff studio (`/<ADMIN_PATH>`, or `/admin.html` in local development) to create the owner login. Do not commit `.env`, database credentials, email or Stripe keys, customer information or order exports.
 
 Customer passwords are stored as Argon2id hashes. Existing scrypt password records are verified on the next successful sign-in and upgraded to Argon2id without requiring a password reset. Customers can request a single-use password-reset link that expires after 30 minutes. Email delivery uses Resend when `RESEND_API_KEY` and `RESEND_FROM_EMAIL` are configured. Verify your sending domain with Resend, then add both values to the Render environment (and `.env` locally). The reset endpoint returns a generic response to avoid revealing which email addresses have accounts.
 
@@ -78,9 +78,25 @@ UK VAT depends on the business's VAT registration, goods classification and cust
 
 ## Owner setup key and database reference
 
-The Owner Studio setup key is **not** a permanent API key. In production, copy `ADMIN_SETUP_KEY` from the Render web service's **Environment** settings and use it once at `/admin.html` to create your owner username and password. Keep the key private. After creating the owner account, sign in with those credentials; the setup key is no longer your login. If setup is still pending and the key must be replaced, update the Render environment value and redeploy. Do not change it after creating the owner account.
+The Owner Studio setup key is **not** a permanent API key. In production, copy `ADMIN_SETUP_KEY` from the Render web service's **Environment** settings and use it once at the staff studio (`/<ADMIN_PATH>`) to create your owner username and password. Keep the key private. After creating the owner account, sign in with those credentials; the setup key is no longer your login. If setup is still pending and the key must be replaced, update the Render environment value and redeploy. Do not change it after creating the owner account.
 
 For the table-by-table structure and safe read-only SQL examples, see [`db/SCHEMA.md`](db/SCHEMA.md). The version 6 migration adds more preview catalogue items and removes the sample bespoke product; bespoke is now request-led. New bespoke enquiries save the customer's style, metal, optional gold purity and stone carat, size, approximate weight, optional description, contact details and optional image in the reservations JSONB record. A signed-in customer uses their saved name/email; guests enter their contact details. Attached reference images are limited to 2 MB and remain in PostgreSQL with the request.
 
 
 The version 7 data migration inserts fictional preview orders and enquiries so the Owner Studio can be explored before real customers arrive. These records use `example.invalid` contact addresses, carry `isDemo: true`, and preview orders never count as paid revenue. The Analytics view offers a protected action to remove only these seeded examples; it does not delete real orders or enquiries.
+
+## Staff studio: private address, two-factor sign-in and roles
+
+The owner studio is now a staff studio with two roles and mandatory two-factor sign-in.
+
+**Private address.** Set `ADMIN_PATH` to a long private slug (at least 16 letters, digits, `-` or `_`), for example `atelier-q7Hd2LmX9pVr4kTz`. The studio is then served only at `https://<your-domain>/<ADMIN_PATH>`; `/admin.html` returns "Not found", and the page is sent with `noindex` and `no-store` headers. In production the studio is unavailable until `ADMIN_PATH` is set. Treat the address as private, but remember it is not the security boundary — the password and authenticator code are.
+
+**Two-factor sign-in (TOTP).** Every staff account signs in with a password and then a 6-digit code from an authenticator app (Google Authenticator, Microsoft Authenticator, 1Password, Apple Passwords, Authy…). The first sign-in after this update shows a setup key to add to the app, then issues 8 one-time recovery codes. Codes cannot be reused, wrong codes are rate-limited, and staff sessions last 8 hours. Sessions created before this update are signed out. Set `STAFF_MFA_KEY` (any long random string) to encrypt authenticator secrets at rest; do not change it once set — if it is lost, sign in with a recovery code and use **Security → Move to a new phone**.
+
+**Roles.**
+- **Owner** — everything: products, collections, analytics, orders, customers, enquiries, settings, and the **Team** tab.
+- **Catalogue team** — products only: add, edit and remove pieces, upload images and adjust stock. Orders, customer details, enquiries, analytics and settings are refused by the server (HTTP 403), not just hidden.
+
+The owner adds catalogue accounts in **Team** with a temporary password, and can set a new temporary password, reset a member's two-factor, or remove them (which signs them out immediately). Every staff member can create new recovery codes or move their authenticator to a new phone under **Security**.
+
+Staff accounts and two-factor settings are stored inside the existing owner record (`owner_credentials` JSONB in PostgreSQL, or `data/store.json` locally), so no database migration is needed. Security-relevant events (`staff_login_failed`, `staff_mfa_failed`, `staff_forbidden`, `staff_created`, …) are written to the server log.

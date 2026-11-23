@@ -26,6 +26,13 @@ services:
         value: "false"
       - key: ADMIN_SETUP_KEY
         generateValue: true
+      # Private staff studio address, e.g. atelier-<long random letters/digits>.
+      # Studio URL becomes https://<your-domain>/<ADMIN_PATH>; /admin.html is disabled.
+      - key: ADMIN_PATH
+        sync: false
+      # Encrypts staff authenticator secrets at rest. Do not change once set.
+      - key: STAFF_MFA_KEY
+        generateValue: true
       - key: RESEND_API_KEY
         sync: false
       - key: RESEND_FROM_EMAIL
