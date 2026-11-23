@@ -637,7 +637,7 @@ function startMfaChallenge(principal) {
 // (e.g. assets/brands/cartier.svg or .png) and the Watches section shows it.
 function brandLogos() {
   const dir=path.join(ROOT,'assets','brands'), out={};
-  try { for (const f of fs.readdirSync(dir)) { const m=f.match(/^([a-z0-9-]+)\.(svg|png|webp)$/); if (m) out[m[1]]=`/assets/brands/${f}`; } } catch {}
+  try { for (const f of fsSync.readdirSync(dir)) { const m=f.match(/^([a-z0-9-]+)\.(svg|png|webp)$/); if (m) out[m[1]]=`/assets/brands/${f}`; } } catch {}
   return out;
 }
 function modelAvailable(file) {

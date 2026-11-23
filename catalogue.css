@@ -500,3 +500,8 @@ html body.cinematic .brand-rail button[data-brand="all"] { justify-content: flex
 @media (max-width: 640px) {
   .is-3d .model-stage-hint { bottom: 64px !important; padding: 0 14px; font-size: 8.5px !important; letter-spacing: .1em !important; line-height: 1.5; }
 }
+/* brand logo files: small, toned gold; cream on the selected tile */
+html body.cinematic .brand-rail .brand-rail-logo { height: 22px; max-width: 104px; margin-bottom: 10px; opacity: .9; filter: brightness(0) invert(.55) sepia(1) saturate(1.5) hue-rotate(-6deg); }
+html body.cinematic .brand-rail button:hover .brand-rail-logo { opacity: 1; filter: brightness(0) invert(.45) sepia(1) saturate(1.8) hue-rotate(-6deg); }
+html body.cinematic .brand-rail button.is-active .brand-rail-logo { filter: brightness(0) invert(.9) sepia(.35); opacity: 1; }
+html body.cinematic .brand-rail .brand-rail-logo { height: 28px; max-width: 118px; }
