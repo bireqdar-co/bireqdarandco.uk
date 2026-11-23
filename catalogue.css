@@ -524,3 +524,27 @@ html body.cinematic .shop-empty p:not(.eyebrow) { margin: 0 auto 26px; max-width
 @media (max-width: 560px) { html body.cinematic .shop-empty { padding: 36px 20px; } .shop-empty-actions { flex-direction: column; } }
 html body.cinematic .shop-empty .cine-link { color: var(--hc-ink) !important; border-color: rgba(15, 42, 30, .45) !important; opacity: 1 !important; }
 html body.cinematic .shop-empty .cine-link:hover { color: var(--hc-gold-deep, #8a6d3b) !important; }
+
+/* ---------- filters on one line ---------- */
+html body.cinematic #filters.filter-list { display: flex !important; flex-wrap: nowrap !important; align-items: flex-end; gap: 14px !important; flex: 1 1 auto; min-width: 0; }
+html body.cinematic #filters > * { flex: 0 1 230px; min-width: 0; margin: 0 !important; }
+html body.cinematic #filters > [hidden] { display: none !important; }
+html body.cinematic #filters > div > .custom-filter { width: 100%; margin: 0 !important; }
+html body.cinematic #filters .filter-trigger { width: 100% !important; min-width: 0 !important; }
+html body.cinematic #filters .filter-value { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+@media (min-width: 981px) { html body.cinematic .shop-tools { display: flex !important; align-items: flex-end; justify-content: space-between; gap: 24px; } }
+@media (max-width: 640px) {
+  html body.cinematic #filters.filter-list { gap: 8px !important; }
+  html body.cinematic #filters > * { flex: 1 1 0; }
+  html body.cinematic #filters .filter-trigger { padding-left: 12px !important; padding-right: 26px !important; font-size: 14px !important; min-height: 42px; }
+  html body.cinematic #filters .filter-caption { font-size: 9px !important; letter-spacing: .12em !important; white-space: nowrap; }
+  html body.cinematic #filters .filter-menu { min-width: 180px; }
+  html body.cinematic #filters > :last-child .filter-menu { right: 0; left: auto; }
+}
+html body.cinematic #filters .custom-filter { width: 100% !important; min-width: 0 !important; }
+@media (max-width: 980px) {
+  html body.cinematic #filters.filter-list { width: 100% !important; }
+  html body.cinematic #filters > * { flex: 1 1 0 !important; max-width: 240px; }
+}
+@media (max-width: 640px) { html body.cinematic #filters > * { max-width: none; } }
+@media (max-width: 980px) { html body.cinematic .shop-tools { grid-template-columns: minmax(0, 1fr) !important; } }
