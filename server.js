@@ -532,7 +532,7 @@ function validPhone(value) { const phone=String(value||'').trim();if(!phone)retu
 function validPostalCode(value) { const postal=String(value||'').trim();return /^[A-Z0-9][A-Z0-9 -]{1,18}[A-Z0-9]$/i.test(postal); }
 function validCountry(value) { return /^[\p{L}\p{M} .,'’()-]{2,80}$/u.test(String(value||'').trim()); }
 function publicProduct(p) {
-  return { id:p.id, slug:p.slug, name:p.name, type:p.type, category:p.category||'', collectionId:p.collectionId, short:p.short, description:p.description, priceCents:p.priceCents, stock:p.stock, currency:p.currency || db.settings.currency, image:p.image, images:Array.isArray(p.images)?p.images:[], finishOptions:Array.isArray(p.finishOptions)?p.finishOptions:[], inquiryOnly:!!p.inquiryOnly, isDemo:!!p.isDemo, specifications:Array.isArray(p.specifications)?p.specifications:[], vatRate:Number.isFinite(Number(p.vatRate))?Number(p.vatRate):20, brand:p.brand||'', bullionType:p.bullionType||'', gemstoneType:p.gemstoneType||'', model3d:modelAvailable(p.model3d)?p.model3d:'', spinFrames:spinAvailable(p.spinFrames) };
+  return { id:p.id, slug:p.slug, name:p.name, type:p.type, category:p.category||'', collectionId:p.collectionId, short:p.short, description:p.description, priceCents:p.priceCents, stock:p.stock, currency:p.currency || db.settings.currency, image:p.image, images:Array.isArray(p.images)?p.images:[], finishOptions:Array.isArray(p.finishOptions)?p.finishOptions:[], inquiryOnly:!!p.inquiryOnly, isDemo:!!p.isDemo, specifications:Array.isArray(p.specifications)?p.specifications:[], vatRate:Number.isFinite(Number(p.vatRate))?Number(p.vatRate):20, brand:p.brand||'', bullionType:p.bullionType||'', gemstoneType:p.gemstoneType||'', gender:p.gender||'', model3d:modelAvailable(p.model3d)?p.model3d:'', spinFrames:spinAvailable(p.spinFrames) };
 }
 function sessionFrom(req) {
   const cookie=String(req.headers.cookie||'').split(';').map(v=>v.trim()).find(v=>v.startsWith('bireqdar_session='));
@@ -664,9 +664,10 @@ function productInput(input, existing=null) {
   if (rawPrice !== null && (!Number.isInteger(rawPrice) || rawPrice < 0 || rawPrice > 100000000)) throw Object.assign(new Error('Price must be a non-negative amount in pence/cents.'),{status:400});
   const inquiryOnly=!!input.inquiryOnly || rawPrice === null;
   const category=clean(input.category,24);
-  if(category&&!['necklaces','pendants','earrings','bracelets','rings'].includes(category))throw Object.assign(new Error('Choose a valid jewellery style.'),{status:400});
+  if(category&&!['necklaces','chains','pendants','earrings','bracelets','rings'].includes(category))throw Object.assign(new Error('Choose a valid jewellery style.'),{status:400});
   const brand=clean(input.brand,60); if(brand&&!['Rolex','Patek Philippe','Audemars Piguet','Cartier','Omega','Richard Mille','Vacheron Constantin'].includes(brand))throw Object.assign(new Error('Choose one of the supported watch brands.'),{status:400});
   const bullionType=clean(input.bullionType,40); if(bullionType&&!['gold-bar','gold-coin','silver-bar','silver-coin','limited-edition'].includes(bullionType))throw Object.assign(new Error('Choose a valid bullion collection.'),{status:400});
+  const gender=clean(input.gender,10); if(gender&&!['him','her','unisex'].includes(gender))throw Object.assign(new Error('Choose For him, For her or Unisex.'),{status:400});
   const gemstoneType=clean(input.gemstoneType,40); if(gemstoneType&&!['gemstone','natural-diamond','lab-grown-diamond'].includes(gemstoneType))throw Object.assign(new Error('Choose a valid gemstone category.'),{status:400});
   const validFinishes=['Silver','Yellow gold plated','Rose gold plated'];
   const finishOptions=Array.isArray(input.finishOptions)?[...new Set(input.finishOptions.map(value=>clean(value,40)))]:[];
@@ -682,7 +683,7 @@ function productInput(input, existing=null) {
   if (model3d && !/^\/?(assets|uploads)\/[\w\/.-]+\.glb$/i.test(model3d)) throw Object.assign(new Error('The 3D model must be a .glb file inside assets/ or uploads/, for example assets/3d/watch.glb.'),{status:400});
   return {
     ...(existing||{}), id:existing?.id || id(), slug:existing?.slug || `${slugify(name)}-${crypto.randomBytes(2).toString('hex')}`,
-    name, type, category, collectionId, vatRate, brand:type==='watch'?brand:'', bullionType:type==='bullion'?bullionType:'', gemstoneType:type==='jewellery'?gemstoneType:'', short:clean(input.short,220), description:clean(input.description,5000),
+    name, type, category, collectionId, vatRate, brand:type==='watch'?brand:'', bullionType:type==='bullion'?bullionType:'', gemstoneType:type==='jewellery'?gemstoneType:'', gender, short:clean(input.short,220), description:clean(input.description,5000),
     priceCents:inquiryOnly?null:rawPrice, stock:Math.max(0,Math.min(100000,Math.floor(Number(input.stock)||0))), currency,
     image:clean(input.image,1000), model3d, spinFrames, published:!!input.published, isDemo:!!input.isDemo, inquiryOnly,
     finishOptions,

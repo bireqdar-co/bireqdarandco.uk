@@ -512,3 +512,15 @@ html body.cinematic .brand-rail .brand-rail-logo { height: 40px; max-width: 120p
 html body.cinematic .brand-rail button[data-brand="all"] { justify-content: center !important; }
 @media (max-width: 640px) { html body.cinematic .brand-rail .brand-rail-logo { height: 34px; max-width: 104px; } }
 html body.cinematic .brand-rail button[data-brand="all"] { align-items: center !important; text-align: center; }
+
+/* ---------- empty selection ---------- */
+html body.cinematic .shop-empty { max-width: 560px; margin: 40px auto 20px; padding: 48px 32px; text-align: center; border: 1px solid rgba(23, 42, 33, .14); background: rgba(255, 255, 255, .4); }
+html body.cinematic .shop-empty[hidden] { display: none !important; }
+html body.cinematic .shop-empty .eyebrow { margin: 0 0 14px !important; }
+html body.cinematic .shop-empty h3 { margin: 0 0 16px; font: 400 clamp(28px, 3vw, 38px)/1.1 var(--hc-display); color: var(--hc-ink) !important; }
+html body.cinematic .shop-empty h3 em { color: var(--hc-burgundy, #6e1a2c) !important; font-style: italic; }
+html body.cinematic .shop-empty p:not(.eyebrow) { margin: 0 auto 26px; max-width: 440px; font-size: 16px; line-height: 1.65; color: var(--hc-ink-soft); }
+.shop-empty-actions { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 14px 26px; }
+@media (max-width: 560px) { html body.cinematic .shop-empty { padding: 36px 20px; } .shop-empty-actions { flex-direction: column; } }
+html body.cinematic .shop-empty .cine-link { color: var(--hc-ink) !important; border-color: rgba(15, 42, 30, .45) !important; opacity: 1 !important; }
+html body.cinematic .shop-empty .cine-link:hover { color: var(--hc-gold-deep, #8a6d3b) !important; }

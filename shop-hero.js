@@ -7,7 +7,7 @@
   const params = new URLSearchParams(location.search);
   const baseKey = (params.get('collection') || params.get('type') || 'all').toLowerCase();
   const category = (params.get('category') || '').toLowerCase();
-  const categoryNames = { necklaces: 'Necklaces', pendants: 'Pendants', earrings: 'Earrings', bracelets: 'Bracelets', rings: 'Rings' };
+  const categoryNames = { necklaces: 'Necklaces', chains: 'Chains', pendants: 'Pendants', earrings: 'Earrings', bracelets: 'Bracelets', rings: 'Rings' };
 
   const scenes = {
     all: {
@@ -18,7 +18,7 @@
     jewellery: {
       image: 'assets/catalogue/tennis-chain-hero.jpg', focus: '50% 40%',
       eyebrow: 'FINE JEWELLERY', title: 'A light of <em>your own.</em>',
-      lede: 'Gold and silver jewellery, from necklaces and pendants to earrings, bracelets and rings.',
+      lede: 'Gold and silver jewellery, from necklaces, chains and pendants to earrings, bracelets and rings.',
     },
     gold: {
       image: 'assets/catalogue/emerald-line-pendant.jpg', focus: '50% 60%',
