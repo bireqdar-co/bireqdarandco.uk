@@ -5,19 +5,19 @@
  const money=(c,cur='GBP')=>c==null?'Price on enquiry':new Intl.NumberFormat(undefined,{style:'currency',currency:cur}).format(c/100),bagKey='bireqdar-bag';
  // 3D view: the catalogue only includes model3d once the .glb exists on the server.
  async function setupModel(p,hasPhotos){
-  const media=root.firstElementChild;if(!media||!/^(\/)?(assets|uploads)\/[\w\/.-]+\.glb$/i.test(p.model3d||''))return;
+  const media=root.querySelector('.product-image-large')||root.firstElementChild;if(!media||!/^(\/)?(assets|uploads)\/[\w\/.-]+\.glb$/i.test(p.model3d||''))return;
   media.classList.add('has-model');
   const stage=document.createElement('div');stage.className='model-stage';stage.hidden=true;
-  stage.innerHTML='<p class="model-stage-status" role="status">Preparing the 3D view…</p><p class="model-stage-hint">Drag to turn · pinch or Ctrl/⌘ + scroll to zoom · double-click to reset</p>';
+  stage.innerHTML='<p class="model-stage-status" role="status">Preparing the 3D view…</p><p class="model-stage-hint"><span class="hint-fine">Drag to turn · Ctrl/⌘ + scroll to zoom · double-click to reset</span><span class="hint-touch">Drag to turn · pinch to zoom · double-tap to reset</span></p>';
   media.append(stage);
   const toggle=document.createElement('button');toggle.type='button';toggle.className='model-toggle';toggle.setAttribute('aria-pressed','false');
   const label=on=>{toggle.innerHTML=on?'<span aria-hidden="true">▣</span> View photographs':'<span aria-hidden="true">◈</span> View in 3D';toggle.setAttribute('aria-pressed',String(on))};
   label(false);let viewer=null,open=false;
-  const show=async()=>{open=true;stage.hidden=false;media.classList.add('is-3d');label(true);
+  const show=async(fromUser=false)=>{open=true;stage.hidden=false;media.classList.add('is-3d');label(true);
    if(!viewer){try{const {createModelViewer}=await import('./model-viewer.js');viewer=createModelViewer(stage,{url:p.model3d,label:`${p.name}, 3D model`,environment:'studio',autoRotate:true,startAngle:-20,tilt:8,fit:.82,shadowOpacity:.5});await viewer.ready;stage.querySelector('.model-stage-status')?.remove()}catch{const status=stage.querySelector('.model-stage-status');if(status)status.textContent='The 3D view could not be shown on this device. The photographs are still available.';viewer=null}}
-   stage.querySelector('canvas')?.focus({preventScroll:true})};
+   if(fromUser)stage.querySelector('canvas')?.focus({preventScroll:true})};
   const hide=()=>{open=false;stage.hidden=true;media.classList.remove('is-3d');label(false)};
-  toggle.addEventListener('click',()=>open?hide():show());
+  toggle.addEventListener('click',()=>open?hide():show(true));
   if(hasPhotos)media.append(toggle);else show();
  }
  function addToBag(p,qty,finish=''){let bag=[];try{bag=JSON.parse(localStorage.getItem(bagKey)||'[]')}catch{}const line=bag.find(x=>x.id===p.id&&(x.finish||'')===finish),totalForProduct=bag.filter(x=>x.id===p.id).reduce((n,x)=>n+(Number(x.quantity)||0),0);if(totalForProduct+qty>p.stock)return false;if(line)line.quantity=Math.min(10,line.quantity+qty);else bag.push({id:p.id,quantity:qty,...(finish?{finish}:{})});localStorage.setItem(bagKey,JSON.stringify(bag));window.updateBagCount?.();return true}

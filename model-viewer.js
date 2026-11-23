@@ -15,7 +15,7 @@
 //   import { createModelViewer } from './model-viewer.js';
 //   const viewer = createModelViewer(container, { url: 'assets/3d/watch.glb', startAngle: -20, tilt: 8 });
 //   viewer.destroy();
-import * as THREE from './vendor/three/three.module.min.js';
+import * as THREE from './vendor/three/three.module.js';
 import { GLTFLoader } from './vendor/three/GLTFLoader.js';
 import { RoomEnvironment } from './vendor/three/RoomEnvironment.js';
 

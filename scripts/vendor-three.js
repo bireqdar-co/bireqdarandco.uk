@@ -15,11 +15,14 @@ if (!fs.existsSync(path.join(source, 'package.json'))) {
   process.exit(0);
 }
 
+// three r171+ splits the build into three.module.js + three.core.js; recent
+// releases no longer ship minified copies, so the plain builds are used.
 const files = [
-  ['build/three.module.min.js', 'three.module.min.js', true],
-  ['build/three.core.min.js', 'three.core.min.js', false], // three r171+ splits the core into this file
+  ['build/three.module.js', 'three.module.js', true],
+  ['build/three.core.js', 'three.core.js', false],
   ['examples/jsm/loaders/GLTFLoader.js', 'GLTFLoader.js', true],
   ['examples/jsm/utils/BufferGeometryUtils.js', 'BufferGeometryUtils.js', true],
+  ['examples/jsm/utils/SkeletonUtils.js', 'SkeletonUtils.js', false], // imported by GLTFLoader in r17x+
   ['examples/jsm/environments/RoomEnvironment.js', 'RoomEnvironment.js', true],
   ['LICENSE', 'LICENSE', false],
 ];
@@ -32,10 +35,10 @@ for (const [from, to, required] of files) {
     continue;
   }
   let text = fs.readFileSync(file, 'utf8');
-  if (to.endsWith('.js')) {
+  if (to.endsWith('.js') && !to.startsWith('three.')) {
     text = text
-      .replace(/from\s*(['"])three\1/g, "from './three.module.min.js'")
-      .replace(/from\s*(['"])\.\.\/utils\/BufferGeometryUtils\.js\1/g, "from './BufferGeometryUtils.js'");
+      .replace(/from\s*(['"])three\1/g, "from './three.module.js'")
+      .replace(/from\s*(['"])\.\.\/utils\/(BufferGeometryUtils|SkeletonUtils)\.js\1/g, "from './$2.js'");
   }
   fs.writeFileSync(path.join(target, to), text);
 }

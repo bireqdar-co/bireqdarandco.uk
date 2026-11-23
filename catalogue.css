@@ -320,3 +320,17 @@ body.cinematic .has-model { position: relative; }
 .model-toggle span { color: var(--hc-gold); font-size: 14px; letter-spacing: 0; }
 .model-toggle:hover { border-color: var(--hc-gold); color: var(--hc-gold-soft); }
 .is-3d .product-gallery-controls { visibility: hidden; }
+.model-toggle { scroll-margin-top: calc(var(--hc-header) + 24px); }
+body.cinematic .product-image-large.has-model { position: relative; overflow: hidden; }
+.hint-touch { display: none; }
+@media (pointer: coarse) { .hint-fine { display: none; } .hint-touch { display: inline; } }
+@media (max-width: 980px) {
+  .model-toggle { top: auto; bottom: 14px; left: 50%; transform: translateX(-50%); white-space: nowrap; }
+  .is-3d .model-stage-hint { bottom: 64px; }
+}
+@media (max-width: 980px) {
+  body.cinematic .product-detail > :first-child { top: auto; }
+}
+@media (min-width: 981px) {
+  body.cinematic .product-detail > .has-model:first-child { position: sticky; }
+}
