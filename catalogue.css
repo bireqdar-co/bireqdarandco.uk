@@ -618,3 +618,12 @@ html body.cinematic .page-hero--banner.is-brand .page-lede { max-width: 470px; m
   html body.cinematic .page-hero--banner.is-brand .shop-quicklinks { margin-top: 34px; }
 }
 @media (max-width: 980px) { html body.cinematic .page-hero--banner.is-brand .page-lede { padding-bottom: 36px !important; } }
+/* brand banner on phones: keep the title and text above the banner's dark overlay */
+@media (max-width: 980px) {
+  html body.cinematic .page-hero--banner.is-brand .cine-eyebrow,
+  html body.cinematic .page-hero--banner.is-brand h1,
+  html body.cinematic .page-hero--banner.is-brand .page-lede { position: relative; z-index: 2; }
+  html body.cinematic .page-hero--banner.is-brand h1 { color: var(--hc-text) !important; }
+  html body.cinematic .page-hero--banner.is-brand h1 em { color: var(--hc-gold-soft) !important; }
+  html body.cinematic .page-hero--banner.is-brand .page-lede { color: var(--hc-text-soft) !important; }
+}
