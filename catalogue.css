@@ -586,3 +586,35 @@ html body.cinematic .page-hero--banner.is-brand .page-lede { max-width: 470px; m
 }
 .brand-hero-logo { filter: brightness(0) invert(.74) sepia(.85) saturate(1.7) hue-rotate(-10deg) drop-shadow(0 10px 30px rgba(0,0,0,.5)); }
 @media (min-width: 1500px) { .brand-hero-mark { right: 16vw; } }
+
+/* ---------- phones/tablets: tidy product image controls ---------- */
+@media (max-width: 980px) {
+  html body.cinematic .product-gallery-wrap { position: relative; background: none !important; }
+  html body.cinematic .view-switch { top: 12px !important; bottom: auto !important; left: 50% !important; transform: translateX(-50%) !important; padding: 3px; background: rgba(3, 19, 12, .55); border-color: rgba(220, 195, 148, .28); }
+  html body.cinematic .view-switch .model-toggle { min-height: 30px !important; padding: 0 12px !important; font-size: 9.5px !important; letter-spacing: .16em !important; }
+  html body.cinematic .product-gallery-controls { position: absolute !important; left: 50% !important; bottom: 12px !important; top: auto !important; transform: translateX(-50%); margin: 0 !important; z-index: 3; padding: 2px 6px !important; min-height: 0 !important; background: rgba(3, 19, 12, .45) !important; border-color: rgba(220, 195, 148, .18) !important; }
+  html body.cinematic .product-gallery-controls button { min-height: 28px !important; min-width: 28px !important; font-size: 13px !important; }
+  html body.cinematic .is-3d .model-stage-hint,
+  html body.cinematic .is-spin .model-stage-hint { bottom: 14px !important; }
+}
+
+/* ---------- phones/tablets: brand banner, centred and calm ---------- */
+@media (max-width: 980px) {
+  html body.cinematic .page-hero--banner.is-brand { text-align: center; align-items: center; }
+  html body.cinematic .page-hero--banner.is-brand .page-hero-copy { display: contents; }
+  html body.cinematic .page-hero--banner.is-brand .cine-eyebrow { order: 0; justify-content: center; margin: calc(var(--hc-header) + 22px) 0 0 !important; padding: 0 var(--hc-pad); }
+  html body.cinematic .page-hero--banner.is-brand .cine-eyebrow::after { content: ""; width: 42px; height: 1px; background: var(--hc-gold); opacity: .7; }
+  html body.cinematic .page-hero--banner.is-brand .brand-hero-mark { order: 1; width: min(190px, 50vw); margin: 26px auto 22px !important; }
+  html body.cinematic .page-hero--banner.is-brand h1 { order: 2; margin: 0 !important; padding: 0 var(--hc-pad); text-align: center; font-size: clamp(38px, 10vw, 54px) !important; }
+  html body.cinematic .page-hero--banner.is-brand .page-lede { order: 3; margin: 16px auto 0 !important; padding: 0 var(--hc-pad); max-width: 360px; font-size: 16px !important; text-align: center; }
+  html body.cinematic .page-hero--banner.is-brand .shop-quicklinks { order: 4; margin-top: 40px; align-self: stretch; text-align: left; }
+}
+@media (max-width: 980px) {
+  html body.cinematic .product-detail .product-gallery-wrap { position: relative !important; }
+  html body.cinematic .product-gallery-controls .product-gallery-dots button { min-width: 0 !important; min-height: 0 !important; width: 6px !important; height: 6px !important; }
+  html body.cinematic .product-gallery-controls .product-gallery-dots button[aria-current="true"],
+  html body.cinematic .product-gallery-controls .product-gallery-dots button.active { width: 16px !important; }
+  html body.cinematic .page-hero--banner.is-brand { min-height: 0 !important; }
+  html body.cinematic .page-hero--banner.is-brand .shop-quicklinks { margin-top: 34px; }
+}
+@media (max-width: 980px) { html body.cinematic .page-hero--banner.is-brand .page-lede { padding-bottom: 36px !important; } }
