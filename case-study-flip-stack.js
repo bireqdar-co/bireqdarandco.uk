@@ -87,12 +87,12 @@
         <div class="flip-stack-stage">
           ${items.map((item, index) => `
             <article id="${escape(item.id || `flip-card-${index}`)}" class="flip-stack-card${item.details?.length ? ' has-details' : ''}" data-flip-card="${index}" style="--flip-card-bg:${escape(item.background)};--flip-card-fg:${escape(item.foreground)};--flip-card-index:${index}" aria-label="${escape(item.eyebrow)}: ${escape(item.title)}">
-              <div class="flip-stack-copy"><p class="flip-stack-eyebrow">${escape(item.eyebrow)}</p><span class="flip-stack-number">${String(index + 1).padStart(2, '0')}</span><h3>${escape(item.title)}</h3><p class="flip-stack-description">${escape(item.description)}</p>${item.details?.length ? `<ul class="flip-stack-details">${item.details.map(detail => `<li>${escape(detail)}</li>`).join('')}</ul>` : ''}<div class="flip-stack-links"><a href="${escape(item.href)}">${escape(item.linkLabel)} <span aria-hidden="true">↗</span></a>${item.secondaryHref ? `<a class="flip-stack-secondary" href="${escape(item.secondaryHref)}">${escape(item.secondaryLabel)} <span aria-hidden="true">↗</span></a>` : ''}</div></div>
+              <div class="flip-stack-copy"><p class="flip-stack-eyebrow">${escape(item.eyebrow)}</p><span class="flip-stack-number">${String(index + 1).padStart(2, '0')}</span><h3>${escape(item.title)}</h3><p class="flip-stack-description">${escape(item.description)}</p>${item.details?.length ? `<ul class="flip-stack-details">${item.details.map(detail => `<li>${escape(detail)}</li>`).join('')}</ul>` : ''}<div class="flip-stack-links"><a href="${escape(item.href)}">${escape(item.linkLabel)} <svg class="cine-arrow" viewBox="0 0 12 12" aria-hidden="true" focusable="false"><path d="M3.2 8.8 8.8 3.2M4.6 3.2h4.2v4.2"/></svg></a>${item.secondaryHref ? `<a class="flip-stack-secondary" href="${escape(item.secondaryHref)}">${escape(item.secondaryLabel)} <svg class="cine-arrow" viewBox="0 0 12 12" aria-hidden="true" focusable="false"><path d="M3.2 8.8 8.8 3.2M4.6 3.2h4.2v4.2"/></svg></a>` : ''}</div></div>
               <div class="flip-stack-image"><img src="${escape(item.image)}" alt="${escape(item.imageAlt)}" loading="${index===0?'eager':'lazy'}"></div>
             </article>`).join('')}
         </div>
       </div>
-      <p class="flip-stack-end">Form follows feeling. Time, made tangible. <a href="shop.html">Explore every piece <span aria-hidden="true">↗</span></a></p>
+      <p class="flip-stack-end">Form follows feeling. Time, made tangible. <a href="shop.html">Explore every piece <svg class="cine-arrow" viewBox="0 0 12 12" aria-hidden="true" focusable="false"><path d="M3.2 8.8 8.8 3.2M4.6 3.2h4.2v4.2"/></svg></a></p>
     </section>`;
 
   const scrollArea = root.querySelector('.flip-stack-scroll');
