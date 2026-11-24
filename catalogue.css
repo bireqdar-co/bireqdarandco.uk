@@ -627,3 +627,9 @@ html body.cinematic .page-hero--banner.is-brand .page-lede { max-width: 470px; m
   html body.cinematic .page-hero--banner.is-brand h1 em { color: var(--hc-gold-soft) !important; }
   html body.cinematic .page-hero--banner.is-brand .page-lede { color: var(--hc-text-soft) !important; }
 }
+
+/* ---------- high-value delivery note (pieces over £2,500 or price on request) ---------- */
+html body.cinematic .detail-handover { position: relative; margin: 30px 0 0; padding: 22px 24px 22px 26px; border: 1px solid rgba(220, 195, 148, .3); background: linear-gradient(135deg, rgba(220, 195, 148, .07), rgba(220, 195, 148, 0) 60%); }
+html body.cinematic .detail-handover::before { content: ""; position: absolute; left: -1px; top: 18px; bottom: 18px; width: 2px; background: var(--hc-gold); }
+html body.cinematic .detail-handover-title { margin: 0 0 8px; font: 500 10.5px/1.3 var(--hc-ui); letter-spacing: .26em; text-transform: uppercase; color: var(--hc-gold-soft); }
+html body.cinematic .detail-handover p:not(.detail-handover-title) { margin: 0; font: 400 16px/1.65 var(--hc-serif); color: var(--hc-text-soft); }
