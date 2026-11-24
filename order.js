@@ -65,6 +65,7 @@
         <p class="order-ref">${escapeHtml(order.reference)}</p>
         ${progressMarkup(order)}
         <div class="order-items">${items}${vatRow}<div class="summary-line total"><span>${labelFor(order.status)}</span><strong>${formatMoney(order.totalCents, order.currency)}</strong></div></div>
+        ${order.guest && order.status !== 'cancelled' ? '<div class="order-guest-invite"><p class="eyebrow">YOUR CLIENT ACCOUNT</p><p>Create an account with the same email address to see this order, track its progress and check out faster next time.</p><a class="cine-link" href="account.html?mode=register">Create your account<svg class="cine-arrow" viewBox="0 0 12 12" aria-hidden="true" focusable="false"><path d="M3.2 8.8 8.8 3.2M4.6 3.2h4.2v4.2"/></svg></a></div>' : ''}
         <p class="order-note">Keep this reference for your records. For help, contact BIREQDAR&amp;CO. and include the reference above.</p>
         <div class="order-page-actions"><button class="button order-refresh-button" type="button" data-refresh-order>Refresh status</button><a class="button primary" href="shop.html">Continue exploring</a></div>
         <p class="order-last-updated" aria-live="polite">Status checked ${escapeHtml(new Date().toLocaleTimeString())}</p>`;

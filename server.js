@@ -799,7 +799,7 @@ async function handleApi(req,res,url) {
     if(req.method==='GET'&&route==='/api/account/google-config')return send(res,200,{clientId:GOOGLE_CLIENT_ID});
     if(req.method==='GET'&&route==='/api/account'){
       const session=customerSession(req);if(!session?.customer)return send(res,200,{authenticated:false});
-      const orders=db.orders.filter(o=>o.customerId===session.customer.id).slice(0,30).map(o=>({reference:o.reference,createdAt:o.createdAt,status:o.status,statusHistory:Array.isArray(o.statusHistory)?o.statusHistory:[],totalCents:o.totalCents,currency:o.currency,items:o.items.map(i=>({name:i.name,quantity:i.quantity}))}));
+      const ownEmail=String(session.customer.email||'').toLowerCase(),verified=!!session.customer.emailVerifiedAt;const orders=db.orders.filter(o=>o.customerId===session.customer.id||(verified&&!o.customerId&&o.paymentMode==='stripe'&&String(o.customer?.email||'').toLowerCase()===ownEmail)).slice(0,30).map(o=>({reference:o.reference,createdAt:o.createdAt,status:o.status,statusHistory:Array.isArray(o.statusHistory)?o.statusHistory:[],totalCents:o.totalCents,currency:o.currency,items:o.items.map(i=>({name:i.name,quantity:i.quantity}))}));
       const savedIds=Array.isArray(session.customer.wishlist)?session.customer.wishlist:[];
       const wishlist=savedIds.map(productId=>db.products.find(product=>product.id===productId)).filter(Boolean).map(publicProduct);
       return send(res,200,{authenticated:true,customer:publicCustomer(session.customer),deliveryAddress:session.customer.deliveryAddress||null,orders,wishlist});
@@ -940,9 +940,9 @@ async function handleApi(req,res,url) {
   }
   if (req.method==='POST' && route==='/api/checkout') {
     const account=customerSession(req)?.customer||null;
-    if(!account)return send(res,401,{error:'Sign in or create an account before placing your order.'});
+    // Guest checkout: an account is optional. Signed-in clients get their order linked to their account.
     if(process.env.NODE_ENV==='production'&&!isCheckoutReady())return send(res,503,{error:'Secure checkout is not configured yet. Please contact our team to enquire about this piece.'});
-    const b=await readJson(req); const customer={title:account.title||'',name:clean(b.name,100).replace(/\s+/g,' '),email:clean(b.email,254),phone:clean(b.phone,40),address1:clean(b.address1,160).replace(/\s+/g,' '),address2:clean(b.address2,160).replace(/\s+/g,' '),city:clean(b.city,100).replace(/\s+/g,' '),postalCode:clean(b.postalCode,30).toUpperCase().replace(/\s+/g,' '),country:clean(b.country,80).replace(/\s+/g,' ')};
+    const b=await readJson(req); const customer={title:account?.title||'',name:clean(b.name,100).replace(/\s+/g,' '),email:clean(b.email,254),phone:clean(b.phone,40),address1:clean(b.address1,160).replace(/\s+/g,' '),address2:clean(b.address2,160).replace(/\s+/g,' '),city:clean(b.city,100).replace(/\s+/g,' '),postalCode:clean(b.postalCode,30).toUpperCase().replace(/\s+/g,' '),country:clean(b.country,80).replace(/\s+/g,' ')};
     if (!customer.name||!validEmail(customer.email)||!customer.address1||!customer.city||!customer.postalCode||!customer.country) return send(res,400,{error:'Complete your name, email and delivery address.'});
     if(!validCustomerName(customer.name))return send(res,400,{error:'Enter a valid full name using letters and normal punctuation.'});
     if(!validPhone(customer.phone))return send(res,400,{error:'Enter a valid phone number with 7 to 15 digits, or leave it blank.'});
@@ -955,11 +955,11 @@ async function handleApi(req,res,url) {
       customer.postalCode=formattedPostcode;
     }else if(!validPostalCode(customer.postalCode))return send(res,400,{error:'Enter a valid delivery postcode or postal code.'});
     if (b.acceptTerms!==true) return send(res,400,{error:'Please confirm your delivery details and privacy notice.'});
-    customer.email=account.email;
+    if(account)customer.email=account.email;
     const requestId= /^[a-f0-9-]{36}$/i.test(String(b.requestId||'')) ? String(b.requestId).toLowerCase() : id();
     const prior=db.orders.find(o=>o.checkoutRequestId===requestId);
     if(prior){
-      if(prior.customerId!==account.id)return send(res,409,{error:'This checkout session belongs to a different client account. Return to your bag and try again.'});
+      if((prior.customerId||null)!==(account?.id||null))return send(res,409,{error:'This checkout session belongs to a different client account. Return to your bag and try again.'});
       if(prior.paymentMode==='stripe'){
         const session=await stripeCheckout(prior,req);
         if(session){prior.stripeSessionId=session.id;await saveDb();return send(res,200,{ok:true,redirectUrl:session.url,reference:prior.reference});}
@@ -968,8 +968,8 @@ async function handleApi(req,res,url) {
     }
     const totals=computeOrder(b.items,customer.country); assertLiveCheckoutReady(totals.items); if(process.env.NODE_ENV==='production'&&totals.items.some(item=>item.isDemo))return send(res,409,{error:'This piece is not available to order online. Please enquire with our team.'}); const shippingCents=Number.isInteger(db.settings.shippingCents)?db.settings.shippingCents:0;
     const createdAt=new Date().toISOString();
-    const order={id:id(),reference:`BC-${shortRef()}`,checkoutRequestId:requestId,createdAt,status:'payment_pending',statusHistory:[{status:'payment_pending',at:createdAt}],paymentMode:process.env.STRIPE_SECRET_KEY&&!totals.items.some(item=>item.isDemo)?'stripe':'preview',customer,customerId:account?.id||null,items:totals.items,subtotalCents:totals.total,taxCents:totals.tax,shippingCents,totalCents:totals.total+shippingCents,currency:totals.currency};
-    if(b.saveAddress===true)account.deliveryAddress={phone:customer.phone,address1:customer.address1,address2:customer.address2,city:customer.city,postalCode:customer.postalCode,country:customer.country};
+    const order={id:id(),reference:`BC-${shortRef()}`,checkoutRequestId:requestId,createdAt,status:'payment_pending',statusHistory:[{status:'payment_pending',at:createdAt}],paymentMode:process.env.STRIPE_SECRET_KEY&&!totals.items.some(item=>item.isDemo)?'stripe':'preview',customer,customerId:account?.id||null,guest:!account,items:totals.items,subtotalCents:totals.total,taxCents:totals.tax,shippingCents,totalCents:totals.total+shippingCents,currency:totals.currency};
+    if(account&&b.saveAddress===true)account.deliveryAddress={phone:customer.phone,address1:customer.address1,address2:customer.address2,city:customer.city,postalCode:customer.postalCode,country:customer.country};
     db.orders.unshift(order); await saveDb();
     try {
       const session=await stripeCheckout(order,req);
@@ -981,7 +981,7 @@ async function handleApi(req,res,url) {
   if (req.method==='GET' && route==='/api/order') {
     const ref=clean(url.searchParams.get('ref'),30).toUpperCase(); const order=db.orders.find(x=>x.reference===ref);
     if(process.env.NODE_ENV==='production'&&order?.paymentMode!=='stripe')return send(res,404,{error:'Order not found. Check the order reference.'});
-    return order?send(res,200,{reference:order.reference,status:order.status,statusHistory:Array.isArray(order.statusHistory)?order.statusHistory:[],paymentMode:order.paymentMode,items:order.items,totalCents:order.totalCents,subtotalCents:order.subtotalCents,shippingCents:order.shippingCents,taxCents:order.taxCents,currency:order.currency,createdAt:order.createdAt}):send(res,404,{error:'Order not found. Check the order reference.'});
+    return order?send(res,200,{reference:order.reference,guest:!order.customerId,status:order.status,statusHistory:Array.isArray(order.statusHistory)?order.statusHistory:[],paymentMode:order.paymentMode,items:order.items,totalCents:order.totalCents,subtotalCents:order.subtotalCents,shippingCents:order.shippingCents,taxCents:order.taxCents,currency:order.currency,createdAt:order.createdAt}):send(res,404,{error:'Order not found. Check the order reference.'});
   }
   if (req.method==='POST' && route==='/api/stripe-webhook') {
     const raw=await readRaw(req); const secret=process.env.STRIPE_WEBHOOK_SECRET;

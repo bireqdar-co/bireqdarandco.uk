@@ -1,6 +1,6 @@
 // Account sign-in, registration, password reset and session-aware account details.
 (() => {
- const root=document.querySelector('#account-content'),params=new URLSearchParams(location.search),resetToken=params.get('reset'),verifyToken=params.get('verify');let mode='login',googleScriptPromise,activePanel='personal';if(resetToken)history.replaceState({},'',location.pathname);
+ const root=document.querySelector('#account-content'),params=new URLSearchParams(location.search),resetToken=params.get('reset'),verifyToken=params.get('verify');let mode=params.get('mode')==='register'?'register':'login',googleScriptPromise,activePanel='personal';if(resetToken)history.replaceState({},'',location.pathname);
  const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
  const titleOptions=['Mr','Mrs','Miss','Ms','Mx','Dr','Prof','Other'];
  const money=(c,cur='GBP')=>new Intl.NumberFormat(undefined,{style:'currency',currency:cur}).format(c/100);
