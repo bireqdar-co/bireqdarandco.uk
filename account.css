@@ -416,7 +416,7 @@ body.page-account .account-welcome--crest { justify-content: center; align-items
   position: absolute; inset: 0; z-index: 0;
   background:
     radial-gradient(120% 80% at 50% 0%, rgba(0,0,0,0) 40%, rgba(2,12,7,.75) 100%),
-    url("emerald-background.png") center / cover no-repeat,
+    url("emerald-background.jpg") center / cover no-repeat,
     #062616;
 }
 /* fine gold guilloché lines */

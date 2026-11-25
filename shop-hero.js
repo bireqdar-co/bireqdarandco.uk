@@ -49,7 +49,7 @@
   const aliases = { watches: 'watch', diamonds: 'gemstones', investment: 'bullion' };
   // A watch brand chosen in the Watches section gets its own banner wording.
   const brandScene = name => ({
-    image: 'emerald-background.png', focus: '50% 40%',
+    image: 'emerald-background.jpg', focus: '50% 40%',
     eyebrow: `TIMEPIECES · ${name.toUpperCase()}`, title: `${name}, <em>considered.</em>`,
     lede: `Explore ${name} watches and ask us about current models, condition, box and papers, availability and full specifications.`,
   });

@@ -35,7 +35,7 @@
       eyebrow: 'TIMEPIECES · BESPOKE',
       title: 'Chosen for your own story.',
       description: 'Explore selected watches or begin a bespoke commission shaped around your ideas, materials and occasion.',
-      image: '/watch-collection-concept.png',
+      image: '/watch-collection-concept.jpg',
       imageAlt: 'Emerald-toned timepiece design presentation',
       background: '#381b26', foreground: '#f3eddf',
       href: 'shop.html?type=watch', linkLabel: 'Explore watches',
@@ -46,7 +46,7 @@
       title: 'The Emerald Monolith.',
       description: 'Sculptural lines and a deep emerald dial bring quiet presence to the collection.',
       details: ['Design language · Sculptural minimalism', 'Dial study · Faceted emerald green'],
-      image: '/watch-collection-concept.png',
+      image: '/watch-collection-concept.jpg',
       imageAlt: 'Three timepieces arranged on dark sculptural plinths',
       background: '#e8dfcc', foreground: '#263e30',
       href: 'shop.html?type=watch', linkLabel: 'Explore our watch collection'

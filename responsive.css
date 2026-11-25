@@ -1,0 +1,283 @@
+/* ==========================================================================
+   BIREQDAR&CO. — responsive layer
+   Loaded last on every public page. Desktop (≥981px with a mouse) is left as
+   designed; everything here targets touch screens, phones, tablets, landscape
+   phones, notched devices and loading stability.
+   Breakpoints used across the site: 1180 · 980 · 768 · 640 · 560 · 380,
+   plus (hover: none) / (pointer: coarse) for touch and (max-height: 500px)
+   for phones held sideways.
+   ========================================================================== */
+
+/* ---------- 1. Foundations (all sizes, no visual change on desktop) ---------- */
+html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+body.cinematic { overflow-x: clip; -webkit-tap-highlight-color: transparent; }
+body.cinematic img, body.cinematic video { max-width: 100%; }
+body.cinematic :focus-visible { outline: 1px solid var(--hc-gold); outline-offset: 3px; }
+
+/* Notched phones (viewport-fit=cover): keep content clear of the notch and
+   the home indicator while backgrounds still run edge to edge. */
+@supports (padding: max(0px)) {
+  body.cinematic { padding-left: env(safe-area-inset-left); padding-right: env(safe-area-inset-right); }
+  body.cinematic .site-header.cine-header {
+    padding-left: max(var(--hc-pad), calc(env(safe-area-inset-left) + 16px));
+    padding-right: max(var(--hc-pad), calc(env(safe-area-inset-right) + 16px));
+  }
+  body.cinematic .site-footer { padding-bottom: calc(28px + env(safe-area-inset-bottom)) !important; }
+  .enquire-dock { right: max(18px, calc(env(safe-area-inset-right) + 12px)); }
+}
+
+/* Loading stability: reserve room for content that arrives after the page
+   paints, so the footer is not drawn in view and then pushed away. */
+body.cinematic #product-detail { min-height: calc(100svh - var(--hc-header)); }
+body.page-account .account-card { align-self: start; }
+body.page-account #account-content { min-height: 360px; }
+body.cinematic .product-grid:empty { min-height: 60svh; }
+
+/* ---------- 2. Touch screens of any size: nothing hides behind hover ---------- */
+@media (hover: none) {
+  body.cinematic .mini-button { opacity: 1 !important; transform: none !important; }
+  body.cinematic .store-card:hover img,
+  body.cinematic .piece-card:hover img { transform: none; }
+}
+
+/* Comfortable touch targets (44px) without changing how things look. */
+@media (pointer: coarse) {
+  body.cinematic .site-footer .footer-column a,
+  body.cinematic .site-footer .footer-text-link,
+  body.cinematic .site-footer .footer-enquiry-link {
+    display: inline-flex; align-items: center; min-height: 44px;
+  }
+  body.cinematic .site-footer .footer-column ul,
+  body.cinematic .site-footer .footer-column nav { gap: 0 !important; }
+  body.cinematic .site-footer .footer-column li { margin: 0 !important; }
+  /* Underlined links keep their underline tight to the text; the hit area grows invisibly. */
+  body.cinematic .back-link,
+  body.cinematic .cine-link,
+  body.cinematic .detail-ask,
+  body.cinematic .account-help,
+  body.cinematic .text-quiet,
+  body.cinematic .text-link,
+  body.cinematic .form-aside-link,
+  body.cinematic .remove-button,
+  body.cinematic .back-link-cine,
+  body.cinematic .footer-enquiry-link { position: relative; }
+  body.cinematic .back-link::before,
+  body.cinematic .cine-link::before,
+  body.cinematic .detail-ask::before,
+  body.cinematic .account-help::before,
+  body.cinematic .text-quiet::before,
+  body.cinematic .text-link::before,
+  body.cinematic .form-aside-link::before,
+  body.cinematic .remove-button::before,
+  body.cinematic .back-link-cine::before { content: ""; position: absolute; inset: -12px -6px; }
+  body.cinematic .cine-header .cine-icon-link { width: 44px; height: 44px; }
+  body.cinematic select#sort { min-height: 44px; }
+  body.cinematic .password-visibility-toggle { min-width: 44px; min-height: 44px; display: inline-grid; place-items: center; }
+  /* Gallery dots stay slim but get a generous invisible hit area. */
+  body.cinematic .product-gallery-dots button { position: relative; }
+  body.cinematic .product-gallery-dots button::before { content: ""; position: absolute; inset: -18px -5px; }
+  body.cinematic .product-gallery-controls > button:not(.product-gallery-dots button) { min-width: 44px !important; min-height: 44px !important; }
+  body.cinematic .cine-wordmark { min-height: 44px; }
+}
+
+/* ---------- 3. Tablets and below (≤980px) ---------- */
+@media (max-width: 980px) {
+  /* Readable minimums for the small uppercase labels. */
+  body.cinematic .shop-quicklinks a { font-size: 10.5px !important; }
+  body.cinematic .site-footer h2 { font-size: 11px !important; }
+  body.cinematic .site-footer .footer-signature { font-size: 10.5px !important; line-height: 1.9 !important; }
+  body.cinematic .site-footer .footer-copyright { font-size: 11px !important; }
+  body.cinematic .search-wrap,
+  body.cinematic .details-label,
+  body.cinematic .shop-by-action { font-size: 10.5px !important; }
+  body.cinematic .site-footer .footer-column a { font-size: 14px !important; }
+
+  /* Header: never let the wordmark crowd the icons. */
+  .cine-wordmark-name { height: 25px; max-width: 46vw; }
+
+  /* Product page on tablets: photographs and details side by side. */
+  body.cinematic .product-grid { gap: 44px 16px !important; }
+
+  /* Bag and checkout: calmer, branded fields instead of white boxes. */
+  body.cinematic .checkout-form .form-grid label {
+    font: 500 10.5px/1.3 var(--hc-ui) !important; letter-spacing: .18em !important; text-transform: uppercase;
+    color: var(--hc-gold-soft) !important;
+  }
+  body.cinematic .checkout-form .form-grid label > span:not(.field-hint) { letter-spacing: .1em; text-transform: none; color: var(--hc-text-soft); }
+  body.cinematic .checkout-form input:not([type="checkbox"]):not([type="radio"]),
+  body.cinematic .checkout-form select {
+    min-height: 48px; margin-top: 6px !important; padding: 10px 2px 10px !important;
+    border: 0 !important; border-bottom: 1px solid rgba(236, 230, 216, .32) !important; border-radius: 0 !important;
+    background: transparent !important; box-shadow: none !important;
+    font: 400 17px/1.4 var(--hc-serif) !important; letter-spacing: 0 !important; text-transform: none !important;
+    color: var(--hc-text) !important; -webkit-text-fill-color: var(--hc-text);
+  }
+  body.cinematic .checkout-form input::placeholder { color: rgba(236, 230, 216, .4) !important; -webkit-text-fill-color: rgba(236, 230, 216, .4); }
+  body.cinematic .checkout-form input:focus { border-bottom-color: var(--hc-gold) !important; outline: none; }
+  body.cinematic .checkout-form input:-webkit-autofill { -webkit-box-shadow: 0 0 0 40px #03130c inset !important; }
+  body.cinematic .checkout-form .field-hint { font: 400 12.5px/1.45 var(--hc-ui) !important; letter-spacing: 0 !important; text-transform: none !important; color: rgba(236, 230, 216, .55) !important; }
+
+  /* Homepage chapters: the reveal opens without rounded "card" corners. */
+  .motion-ok .chapter-media { clip-path: inset(calc((1 - var(--enter, 1)) * 5%) calc((1 - var(--enter, 1)) * 5%)); }
+  /* Section dots only over the dark, cinematic chapters. */
+  body.cinematic .chapter-index { transition: opacity .35s ease, visibility .35s; }
+  body.cinematic .chapter-index.on-light { opacity: 0; visibility: hidden; pointer-events: none; }
+  .chapter-copy { padding-right: 34px !important; }
+
+  /* About page: give the "Ask our team" link room under the statement. */
+  body.cinematic .statement-band .cine-link,
+  body.cinematic .page-statement .cine-link { margin-top: 26px; }
+
+  /* Bespoke file input: 16px so iOS does not zoom when it is tapped. */
+  body.cinematic input[type="file"] { font-size: 16px !important; }
+}
+
+/* Tablet product page: two columns between 700 and 980px. */
+@media (min-width: 700px) and (max-width: 980px) {
+  body.cinematic .product-detail {
+    grid-template-columns: minmax(0, 1.05fr) minmax(0, .95fr) !important;
+    gap: 36px !important;
+  }
+  body.cinematic .product-detail > :first-child { position: sticky !important; top: calc(var(--hc-header) + 16px) !important; }
+  body.cinematic .product-detail-copy h1 { font-size: clamp(30px, 4.4vw, 40px) !important; }
+  body.cinematic .product-grid { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; }
+}
+
+/* ---------- 4. Phones (≤640px) ---------- */
+@media (max-width: 640px) {
+  /* Header: wordmark, bag and menu only. Enquire lives in the menu and the dock. */
+  body.cinematic .cine-header .cine-enquire-pill { display: none !important; }
+  body.cinematic .site-header.cine-header { grid-template-columns: 1fr auto auto; gap: 4px; }
+  .cine-wordmark-name { height: 24px; max-width: 58vw; }
+
+  /* Enquiry dock: a discreet round button rather than a wide pill over content. */
+  .enquire-dock {
+    width: 52px; height: 52px; min-height: 52px; padding: 0; gap: 0; justify-content: center;
+    border: 1px solid rgba(16, 36, 26, .12);
+  }
+  .enquire-dock span, .enquire-dock .enquire-dock-label {
+    position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap;
+  }
+  .enquire-dock svg { width: 20px; height: 20px; }
+  body.menu-open .enquire-dock { opacity: 0 !important; pointer-events: none !important; }
+
+  /* Product page: immersive, edge-to-edge photographs. */
+  body.cinematic.page-product main.store-main { padding-left: 0 !important; padding-right: 0 !important; }
+  body.cinematic.page-product .back-link { margin-left: var(--hc-pad); }
+  body.cinematic .product-detail { gap: 26px !important; }
+  body.cinematic .product-detail-copy { padding-left: var(--hc-pad) !important; padding-right: var(--hc-pad) !important; }
+  body.cinematic .product-detail-copy h1 { font-size: clamp(30px, 8.6vw, 38px) !important; line-height: 1.06 !important; }
+
+  /* Listing cards: tidy two-up grid with breathing room. */
+  body.cinematic .store-card h3 { font-size: 16px !important; line-height: 1.25 !important; }
+
+  /* Footer: one calm column of generous links. */
+  body.cinematic .site-footer .footer-columns { gap: 30px 20px !important; }
+}
+
+/* ---------- 5. Small phones (≤380px, e.g. iPhone SE / 320px) ---------- */
+@media (max-width: 380px) {
+  body.cinematic { --hc-pad: 18px; }
+  .cine-wordmark-name { height: 21px; }
+  body.cinematic .cine-hero-title h1,
+  body.cinematic .cine-hero h1 { font-size: clamp(34px, 11vw, 42px) !important; }
+  body.cinematic .page-hero h1 { font-size: clamp(34px, 10.5vw, 44px) !important; }
+  body.cinematic .cine-actions { flex-direction: column; align-items: stretch; }
+  body.cinematic .cine-actions .cine-button { width: 100%; justify-content: center; }
+  body.cinematic .product-grid { gap: 34px 10px !important; }
+  body.cinematic .store-card h3 { font-size: 15px !important; }
+  #filters .filter-caption { letter-spacing: .08em !important; }
+}
+
+/* ---------- 6. Phones held sideways (short screens) ---------- */
+@media (max-height: 500px) and (orientation: landscape) {
+  body.cinematic { --hc-header: 56px; }
+  .cine-wordmark-name { height: 22px; }
+  /* Menu: two columns so every link fits without long scrolling. */
+  html body.cinematic .site-header.cine-header nav {
+    display: grid !important; grid-template-columns: repeat(2, minmax(0, 1fr)); align-content: start;
+    column-gap: 28px !important; padding-top: 4px !important;
+  }
+  body.cinematic .cine-header nav a { min-height: 46px !important; font-size: 20px !important; }
+  /* Heroes: never taller than the screen in a way that hides the title. */
+  body.cinematic .page-hero { min-height: 0 !important; }
+  .enquire-dock { bottom: calc(12px + env(safe-area-inset-bottom)); }
+  body.cinematic .product-detail { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) !important; }
+  body.cinematic .product-detail > :first-child { position: sticky !important; top: calc(var(--hc-header) + 8px) !important; }
+}
+
+/* ---------- 7. Motion preferences ---------- */
+@media (prefers-reduced-motion: reduce) {
+  body.cinematic .chapter-index,
+  .enquire-dock { transition: none !important; }
+}
+
+/* Product gallery: horizontal swipes belong to the gallery, vertical to the page. */
+body.cinematic .product-gallery { touch-action: pan-y; }
+body.cinematic .product-gallery-track { will-change: transform; }
+
+/* Small phones: buttons keep their label on one line; footer becomes one column. */
+@media (max-width: 380px) {
+  body.cinematic .cine-button { white-space: nowrap; letter-spacing: .13em !important; padding-left: 16px !important; padding-right: 16px !important; }
+  body.cinematic .site-footer .footer-columns { grid-template-columns: minmax(0, 1fr) !important; }
+}
+/* Filters on the narrowest phones: still one line, values stay readable. */
+@media (max-width: 400px) {
+  html body.cinematic #filters.filter-list { gap: 6px !important; }
+  html body.cinematic #filters .filter-trigger { padding-left: 12px !important; padding-right: 10px !important; gap: 4px !important; font-size: 14px !important; }
+  html body.cinematic #filters .filter-value { flex: 1 1 auto; }
+  html body.cinematic #filters .filter-trigger::after,
+  html body.cinematic #filters .filter-chevron { right: 8px !important; }
+  html body.cinematic #filters .filter-value { text-overflow: clip !important; }
+}
+
+/* ---------- 8. Second pass after re-testing ---------- */
+/* Small laptops and tablets in landscape (981–1180px): readable header links
+   and a three-up collection grid instead of two oversized cards. */
+@media (min-width: 981px) and (max-width: 1180px) {
+  body.cinematic .cine-header nav a { font-size: 10.5px !important; letter-spacing: .16em !important; }
+  body.cinematic .product-grid { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; }
+}
+@media (pointer: coarse) and (min-width: 981px) {
+  body.cinematic .cine-header nav a { padding: 15px 0 !important; }
+}
+/* Touch: steppers, chips and quiet links get full-size targets. */
+@media (pointer: coarse) {
+  body.cinematic .quantity-control button,
+  body.cinematic .quantity-stepper button,
+  body.cinematic .qty-control button,
+  body.cinematic button[aria-label^="Decrease"],
+  body.cinematic button[aria-label^="Increase"] { min-width: 44px !important; min-height: 44px !important; }
+  body.cinematic .chapter-chips a { min-height: 42px; display: inline-flex !important; align-items: center; }
+  body.cinematic input[type="file"] { font-size: 16px !important; }
+}
+/* Small uppercase captions: nothing under 10.5px on tablets and phones. */
+@media (max-width: 1180px) {
+  body.cinematic .filter-caption,
+  body.cinematic .product-type,
+  body.cinematic .account-crest-eyebrow,
+  body.cinematic .mini-button,
+  body.cinematic .checkout-form label > span:not(.field-hint) { font-size: 10.5px !important; }
+  body.cinematic .site-footer .footer-signature { font-size: 10.5px !important; }
+}
+/* Store pages: hold the footer below the fold until the content arrives. */
+body.cinematic main.store-main { min-height: 100svh; }
+/* Higher-specificity versions where older stylesheets already use !important. */
+@media (max-width: 1180px) {
+  html body.cinematic .mini-button,
+  html body.cinematic #filters .filter-caption,
+  html body.cinematic .piece-kicker,
+  html body.cinematic .search-wrap,
+  html body.cinematic.page-account label,
+  html body.cinematic.page-account .account-tabs button,
+  html body.cinematic.page-account [role="tab"] { font-size: 10.5px !important; }
+}
+@media (pointer: coarse) {
+  /* Invisible hit areas: the fine underline and heart keep their size. */
+  html body.cinematic .store-card .mini-button { position: relative; }
+  html body.cinematic .store-card .mini-button::after { content: ""; position: absolute; inset: -16px -14px -14px; }
+  html body.cinematic .store-card .wishlist-toggle::after { content: ""; position: absolute; inset: -6px; border-radius: 50%; }
+}
+@media (max-width: 1180px) {
+  html body.cinematic .store-card .mini-button { font-size: 10.5px !important; }
+}
