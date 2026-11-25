@@ -707,9 +707,9 @@ footer.site-footer {
 em{color:#8B0D1A!important}
 
 /* Dark burgundy emphasis and a readable selection highlight. */
-em{color:#D38C9D!important}
+em{color:#4a1222!important}
 ::selection{background:#670626;color:#F6F3E9}
 ::-moz-selection{background:#670626;color:#F6F3E9}
 
 /* Override the more specific page heading rules so all editorial italics use burgundy. */
-html body[class] em,html body:not([class]) em{color:#D38C9D!important}
+html body[class] em,html body:not([class]) em{color:#4a1222!important}

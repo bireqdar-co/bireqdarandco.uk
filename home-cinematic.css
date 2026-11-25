@@ -153,7 +153,7 @@
 .shop-by h2,
 .pieces h2 { font-size: clamp(40px, 5vw, 84px); color: var(--hc-ink) !important; }
 html body.home-cinematic .shop-by h2 em,
-html body.home-cinematic .pieces h2 em { color: #D38C9D !important; }
+html body.home-cinematic .pieces h2 em { color: #4a1222 !important; }
 /* ---------- collection chapters ---------- */
 .chapters { position: relative; background: var(--hc-night); }
 .chapter { position: relative; }

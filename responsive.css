@@ -386,3 +386,47 @@ html body.cinematic .catalogue .sort-label { color: #55665a !important; }
 /* Wishlist heart on light product photographs: a soft veil keeps it visible on any image. */
 html body.cinematic .store-card .wishlist-toggle:not([aria-pressed="true"]) { background: rgba(6, 35, 24, .38) !important; color: #fbf7ee !important; }
 html body.cinematic .store-card .wishlist-toggle:not([aria-pressed="true"]):hover { background: rgba(242, 236, 224, .9) !important; color: var(--hc-ink) !important; }
+
+/* ---- Burgundy satin italic accents (owner request, Nov 2026) -------------------------
+   The italic accent words on cream sections are filled with a darkened burgundy satin
+   texture. Browsers without text-clipping keep the solid deep burgundy (#4a1222). */
+html body .shop-by-head h2 em,
+html body .pieces-head h2 em,
+html body .pieces h2 em,
+html body .page-head h2 em,
+html body .detail-split h2 em,
+html body .account-title em,
+html body .account-page-heading h1 em,
+html body .paper-card h2 em,
+html body .cart-content h2 em,
+html body .shop-empty h3 em,
+html body .flip-stack-intro h2 em,
+html body .admin-page .auth-panel h1 em { color: #4a1222 !important; }
+@supports ((-webkit-background-clip: text) or (background-clip: text)) {
+  html body .shop-by-head h2 em,
+  html body .pieces-head h2 em,
+  html body .pieces h2 em,
+  html body .page-head h2 em,
+  html body .detail-split h2 em,
+  html body .account-title em,
+  html body .account-page-heading h1 em,
+  html body .paper-card h2 em,
+  html body .cart-content h2 em,
+  html body .shop-empty h3 em,
+  html body .flip-stack-intro h2 em,
+  html body .admin-page .auth-panel h1 em {
+    background-color: #4a1222;
+    background-image: url("assets/textures/burgundy-satin.jpg");
+    background-size: cover;
+    background-position: 30% 50%;
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    color: transparent !important;
+    /* Room for the italic overhang so the last letter is not clipped. */
+    padding-right: .12em;
+    margin-right: -.12em;
+    -webkit-box-decoration-break: clone;
+    box-decoration-break: clone;
+  }
+}
