@@ -213,6 +213,19 @@ describe('Catalogue, checkout and payments', () => {
     await owner.put('/api/admin/settings', { ...settings, shippingCents: settings.shippingCents });
   });
 
+  it('CHK-016 delivery is complimentary by default (no delivery line is charged)', async () => {
+    const cat = await shopper.get('/api/catalog');
+    assert.equal(cat.data.shippingCents, 0);
+    const p = await h.createProduct(owner, { stock: 2, priceCents: 45000 });
+    const before = stripeCalls().length;
+    const r = await checkout(shopper, [{ id: p.id, quantity: 1 }]);
+    assert.equal(r.status, 200);
+    const order = await h.findOrder(owner, r.data.reference);
+    assert.equal(order.shippingCents, 0);
+    assert.equal(order.totalCents, 45000);
+    assert.equal(stripeCalls().slice(before).pop().params['line_items[1][price_data][product_data][name]'], undefined, 'no Delivery line sent to Stripe');
+  });
+
   it('CHK-015 items in different currencies cannot share one bag', async () => {
     const gbp = await h.createProduct(owner, { stock: 2, priceCents: 1000, currency: 'GBP' });
     const eur = await h.createProduct(owner, { stock: 2, priceCents: 1000, currency: 'EUR' });

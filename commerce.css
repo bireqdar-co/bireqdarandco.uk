@@ -399,7 +399,7 @@ button,a,input,select,textarea{-webkit-tap-highlight-color:transparent;touch-act
 .account-page-heading{padding:8px 0 28px;border-bottom:1px solid rgba(53,79,59,.18)}
 .account-page-heading>.eyebrow{color:#8a7354}
 .account-page-heading h1{margin:8px 0 13px;color:#274734;font:400 clamp(42px,6vw,66px)/1.02 "Times New Roman",Times,serif}
-.account-page-heading h1 em{color:#670626!important}
+.account-page-heading h1 em{color:#D38C9D!important}
 .account-breadcrumb{display:flex;align-items:center;gap:10px;margin:0;color:#6e796c;font:13px "Times New Roman",Times,serif}
 .account-breadcrumb a{color:#526b57;text-decoration:none}.account-breadcrumb a:hover{text-decoration:underline;text-underline-offset:4px}
 .account-dashboard-layout{display:grid;grid-template-columns:minmax(190px,245px) minmax(0,1fr);gap:clamp(24px,5vw,58px);padding-top:30px;align-items:start}

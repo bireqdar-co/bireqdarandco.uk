@@ -1,127 +1,128 @@
 <?xml version="1.0" encoding="utf-8"?>
 <testsuites>
-	<testsuite name="Customer accounts" time="2.374933" disabled="0" errors="0" tests="21" failures="0" skipped="3" hostname="vm">
-		<testcase name="ACC-001 registration sends a verification link and blocks sign-in until it is used" time="0.206065" classname="test"/>
-		<testcase name="ACC-002 the session cookie is HttpOnly, Secure, SameSite=Lax and random" time="0.090883" classname="test"/>
-		<testcase name="ACC-003 registration validates the form on the server" time="0.021297" classname="test"/>
-		<testcase name="ACC-004 wrong password and unknown email give the same answer (no account enumeration at sign-in)" time="0.116699" classname="test"/>
-		<testcase name="ACC-005 duplicate registration does not reveal whether an email is registered" time="0.157230" classname="test"/>
-		<testcase name="ACC-006 repeated wrong passwords for one account are rate limited, even across IP addresses" time="0.198492" classname="test"/>
-		<testcase name="ACC-007 password reset: generic answer, single-use token, old sessions ended" time="0.187224" classname="test"/>
-		<testcase name="ACC-008 sign-out invalidates the session on the server" time="0.083941" classname="test"/>
-		<testcase name="ACC-009 protected account actions require sign-in; forged cookies are ignored" time="0.006549" classname="test"/>
-		<testcase name="ACC-010 a client sees only their own orders (no IDOR between accounts)" time="0.215686" classname="test"/>
-		<testcase name="ACC-011 profile updates ignore fields the client must not control (mass assignment)" time="0.101643" classname="test"/>
-		<testcase name="ACC-012 saved address is validated" time="0.081334" classname="test"/>
-		<testcase name="ACC-013 the wishlist only accepts pieces that are on sale publicly" time="0.079662" classname="test"/>
-		<testcase name="ACC-014 customer sessions cannot reach the staff studio API" time="0.071614" classname="test"/>
-		<testcase name="ACC-018 an existing client who tries to register again is emailed instead, and nothing changes" time="0.149593" classname="test"/>
-		<testcase name="ACC-019 Google sign-in removes a password set by someone who never confirmed the email (pre-account takeover)" time="0.042214" classname="test"/>
-		<testcase name="ACC-020 Google sign-in keeps the password of an account whose owner already confirmed the email" time="0.101256" classname="test"/>
-		<testcase name="ACC-021 a password reset confirms the email of an unconfirmed account" time="0.092102" classname="test"/>
-		<testcase name="ACC-015 signed-in clients can change their password" time="0.000174" classname="test">
+	<testsuite name="Customer accounts" time="2.698606" disabled="0" errors="0" tests="21" failures="0" skipped="3" hostname="vm">
+		<testcase name="ACC-001 registration sends a verification link and blocks sign-in until it is used" time="0.236839" classname="test"/>
+		<testcase name="ACC-002 the session cookie is HttpOnly, Secure, SameSite=Lax and random" time="0.103655" classname="test"/>
+		<testcase name="ACC-003 registration validates the form on the server" time="0.029994" classname="test"/>
+		<testcase name="ACC-004 wrong password and unknown email give the same answer (no account enumeration at sign-in)" time="0.105627" classname="test"/>
+		<testcase name="ACC-005 duplicate registration does not reveal whether an email is registered" time="0.113319" classname="test"/>
+		<testcase name="ACC-006 repeated wrong passwords for one account are rate limited, even across IP addresses" time="0.226955" classname="test"/>
+		<testcase name="ACC-007 password reset: generic answer, single-use token, old sessions ended" time="0.172668" classname="test"/>
+		<testcase name="ACC-008 sign-out invalidates the session on the server" time="0.071117" classname="test"/>
+		<testcase name="ACC-009 protected account actions require sign-in; forged cookies are ignored" time="0.008263" classname="test"/>
+		<testcase name="ACC-010 a client sees only their own orders (no IDOR between accounts)" time="0.191869" classname="test"/>
+		<testcase name="ACC-011 profile updates ignore fields the client must not control (mass assignment)" time="0.092137" classname="test"/>
+		<testcase name="ACC-012 saved address is validated" time="0.074474" classname="test"/>
+		<testcase name="ACC-013 the wishlist only accepts pieces that are on sale publicly" time="0.102464" classname="test"/>
+		<testcase name="ACC-014 customer sessions cannot reach the staff studio API" time="0.085675" classname="test"/>
+		<testcase name="ACC-018 an existing client who tries to register again is emailed instead, and nothing changes" time="0.201055" classname="test"/>
+		<testcase name="ACC-019 Google sign-in removes a password set by someone who never confirmed the email (pre-account takeover)" time="0.054348" classname="test"/>
+		<testcase name="ACC-020 Google sign-in keeps the password of an account whose owner already confirmed the email" time="0.131175" classname="test"/>
+		<testcase name="ACC-021 a password reset confirms the email of an unconfirmed account" time="0.111041" classname="test"/>
+		<testcase name="ACC-015 signed-in clients can change their password" time="0.000257" classname="test">
 			<skipped type="todo" message="Not implemented: no change-password endpoint; clients must use the email reset flow."/>
 		</testcase>
-		<testcase name="ACC-016 clients can delete their account and personal data" time="0.000048" classname="test">
+		<testcase name="ACC-016 clients can delete their account and personal data" time="0.000077" classname="test">
 			<skipped type="todo" message="Not implemented: no account deletion (UK GDPR Art. 17 requests are manual)."/>
 		</testcase>
-		<testcase name="ACC-017 clients can export their personal data" time="0.000037" classname="test">
+		<testcase name="ACC-017 clients can export their personal data" time="0.000054" classname="test">
 			<skipped type="todo" message="Not implemented: no self-service data export (UK GDPR Art. 15/20 requests are manual)."/>
 		</testcase>
 	</testsuite>
-	<testsuite name="Catalogue, checkout and payments" time="1.379456" disabled="0" errors="0" tests="32" failures="0" skipped="0" hostname="vm">
-		<testcase name="CAT-001 a published piece loads by slug; unknown slugs return 404" time="0.013232" classname="test"/>
-		<testcase name="CAT-002 unpublished pieces are hidden from the catalogue and product page" time="0.011075" classname="test"/>
-		<testcase name="CAT-003 sample/demo listings are hidden in production" time="0.005148" classname="test"/>
-		<testcase name="CAT-004 high-value prices are stored and returned exactly (no float rounding)" time="0.012197" classname="test"/>
-		<testcase name="CHK-001 a guest can check out and is redirected to Stripe test checkout" time="0.044222" classname="test"/>
-		<testcase name="CHK-002 prices, totals and delivery come from the server, not the browser" time="0.016708" classname="test"/>
-		<testcase name="CHK-003 invalid quantities are rejected (zero, negative, too many, non-numeric, fractional)" time="0.024083" classname="test"/>
-		<testcase name="CHK-004 quantities above available stock are refused, including split across lines" time="0.009880" classname="test"/>
-		<testcase name="CHK-005 unknown, unpublished, enquiry-only and watch pieces cannot be bought" time="0.023882" classname="test"/>
-		<testcase name="CHK-006 an empty or oversized bag is refused" time="0.011079" classname="test"/>
-		<testcase name="CHK-007 delivery details are validated on the server" time="0.041781" classname="test"/>
-		<testcase name="CHK-008 repeating the same checkout request is idempotent (no duplicate order or charge)" time="0.024430" classname="test"/>
-		<testcase name="CHK-009 two shoppers cannot both reserve the last unit of a unique piece" time="0.012649" classname="test"/>
-		<testcase name="CHK-010 a different client cannot hijack another checkout request ID" time="0.110047" classname="test"/>
-		<testcase name="CHK-011 a signed-in client’s order is linked to their account and uses their verified email" time="0.097875" classname="test"/>
-		<testcase name="CHK-012 a payment-provider failure is reported politely and does not hold stock" time="0.023643" classname="test"/>
-		<testcase name="CHK-013 a provider timeout fails safely" time="0.015231" classname="test"/>
-		<testcase name="CHK-014 the configured delivery fee is added by the server and cannot be removed by the client" time="0.028812" classname="test"/>
-		<testcase name="CHK-015 items in different currencies cannot share one bag" time="0.011062" classname="test"/>
-		<testcase name="PAY-001 webhooks without a valid, recent Stripe signature are rejected" time="0.022855" classname="test"/>
-		<testcase name="PAY-002 a verified payment marks the order paid, reduces stock once and emails the client" time="0.047341" classname="test"/>
-		<testcase name="PAY-003 replayed and duplicate webhook deliveries do not double-count" time="0.036368" classname="test"/>
-		<testcase name="PAY-004 a payment for the wrong amount or currency is not accepted" time="0.019968" classname="test"/>
-		<testcase name="PAY-005 events that do not match the order (metadata, reference, unpaid) change nothing" time="0.025278" classname="test"/>
-		<testcase name="PAY-006 an expired or failed payment session cancels the order and releases the piece" time="0.028523" classname="test"/>
-		<testcase name="PAY-007 if the confirmation email fails, Stripe is asked to retry and the email is sent once later" time="0.029006" classname="test"/>
-		<testcase name="PAY-008 a payment that arrives after the order was cancelled is flagged, not silently lost" time="0.040998" classname="test"/>
-		<testcase name="PAY-009 staff cannot cancel an order while the client may be paying for it" time="0.028449" classname="test"/>
-		<testcase name="PAY-010 an unpaid checkout holds the piece for 45 minutes, not 24 hours" time="0.018507" classname="test"/>
-		<testcase name="SEC-RL-001 checkout attempts from one client are rate limited" time="0.119534" classname="test"/>
-		<testcase name="ORD-001 the public order page shows status and items but no personal details" time="0.022443" classname="test"/>
-		<testcase name="ORD-002 guessing order references is rate limited" time="0.033621" classname="test"/>
+	<testsuite name="Catalogue, checkout and payments" time="1.607460" disabled="0" errors="0" tests="33" failures="0" skipped="0" hostname="vm">
+		<testcase name="CAT-001 a published piece loads by slug; unknown slugs return 404" time="0.022978" classname="test"/>
+		<testcase name="CAT-002 unpublished pieces are hidden from the catalogue and product page" time="0.015406" classname="test"/>
+		<testcase name="CAT-003 sample/demo listings are hidden in production" time="0.010603" classname="test"/>
+		<testcase name="CAT-004 high-value prices are stored and returned exactly (no float rounding)" time="0.016416" classname="test"/>
+		<testcase name="CHK-001 a guest can check out and is redirected to Stripe test checkout" time="0.069233" classname="test"/>
+		<testcase name="CHK-002 prices, totals and delivery come from the server, not the browser" time="0.023169" classname="test"/>
+		<testcase name="CHK-003 invalid quantities are rejected (zero, negative, too many, non-numeric, fractional)" time="0.028067" classname="test"/>
+		<testcase name="CHK-004 quantities above available stock are refused, including split across lines" time="0.011538" classname="test"/>
+		<testcase name="CHK-005 unknown, unpublished, enquiry-only and watch pieces cannot be bought" time="0.030456" classname="test"/>
+		<testcase name="CHK-006 an empty or oversized bag is refused" time="0.013844" classname="test"/>
+		<testcase name="CHK-007 delivery details are validated on the server" time="0.053313" classname="test"/>
+		<testcase name="CHK-008 repeating the same checkout request is idempotent (no duplicate order or charge)" time="0.028153" classname="test"/>
+		<testcase name="CHK-009 two shoppers cannot both reserve the last unit of a unique piece" time="0.015953" classname="test"/>
+		<testcase name="CHK-010 a different client cannot hijack another checkout request ID" time="0.109924" classname="test"/>
+		<testcase name="CHK-011 a signed-in client’s order is linked to their account and uses their verified email" time="0.101078" classname="test"/>
+		<testcase name="CHK-012 a payment-provider failure is reported politely and does not hold stock" time="0.025800" classname="test"/>
+		<testcase name="CHK-013 a provider timeout fails safely" time="0.014342" classname="test"/>
+		<testcase name="CHK-014 the configured delivery fee is added by the server and cannot be removed by the client" time="0.030789" classname="test"/>
+		<testcase name="CHK-016 delivery is complimentary by default (no delivery line is charged)" time="0.019429" classname="test"/>
+		<testcase name="CHK-015 items in different currencies cannot share one bag" time="0.010983" classname="test"/>
+		<testcase name="PAY-001 webhooks without a valid, recent Stripe signature are rejected" time="0.026078" classname="test"/>
+		<testcase name="PAY-002 a verified payment marks the order paid, reduces stock once and emails the client" time="0.084549" classname="test"/>
+		<testcase name="PAY-003 replayed and duplicate webhook deliveries do not double-count" time="0.036204" classname="test"/>
+		<testcase name="PAY-004 a payment for the wrong amount or currency is not accepted" time="0.023891" classname="test"/>
+		<testcase name="PAY-005 events that do not match the order (metadata, reference, unpaid) change nothing" time="0.031884" classname="test"/>
+		<testcase name="PAY-006 an expired or failed payment session cancels the order and releases the piece" time="0.037284" classname="test"/>
+		<testcase name="PAY-007 if the confirmation email fails, Stripe is asked to retry and the email is sent once later" time="0.038709" classname="test"/>
+		<testcase name="PAY-008 a payment that arrives after the order was cancelled is flagged, not silently lost" time="0.037482" classname="test"/>
+		<testcase name="PAY-009 staff cannot cancel an order while the client may be paying for it" time="0.023325" classname="test"/>
+		<testcase name="PAY-010 an unpaid checkout holds the piece for 45 minutes, not 24 hours" time="0.024693" classname="test"/>
+		<testcase name="SEC-RL-001 checkout attempts from one client are rate limited" time="0.100816" classname="test"/>
+		<testcase name="ORD-001 the public order page shows status and items but no personal details" time="0.020215" classname="test"/>
+		<testcase name="ORD-002 guessing order references is rate limited" time="0.044649" classname="test"/>
 	</testsuite>
-	<testsuite name="Platform" time="0.538235" disabled="0" errors="0" tests="14" failures="0" skipped="0" hostname="vm">
-		<testcase name="SMK-001 health endpoint reports the expected storage engine" time="0.033127" classname="test"/>
-		<testcase name="SMK-002 every public page responds 200 with HTML" time="0.051936" classname="test"/>
-		<testcase name="SMK-003 catalogue API returns published products and active collections" time="0.002120" classname="test"/>
-		<testcase name="SEC-HDR-001 security headers are present on pages and API responses" time="0.004017" classname="test"/>
-		<testcase name="SEC-HDR-002 API responses are never cached and send no permissive CORS headers" time="0.001733" classname="test"/>
-		<testcase name="SEC-STA-001 server code, configuration, data and dependency files are not downloadable" time="0.016004" classname="test"/>
-		<testcase name="SEC-STA-002 internal documentation, tests and audit reports are not publicly served" time="0.007648" classname="test"/>
-		<testcase name="SEC-STA-003 path traversal attempts cannot read files outside the web root" time="0.009025" classname="test"/>
-		<testcase name="SEC-STA-004 the staff studio is only reachable at its private address" time="0.065367" classname="test"/>
-		<testcase name="SEC-STA-005 static files only answer GET and HEAD" time="0.004940" classname="test"/>
-		<testcase name="NAV-404-001 unknown pages return 404 with a branded HTML page for browsers" time="0.003292" classname="test"/>
-		<testcase name="API-001 malformed requests are rejected without leaking internals" time="0.007999" classname="test"/>
-		<testcase name="API-002 request bodies over 7 MB are refused" time="0.063545" classname="test"/>
-		<testcase name="SEC-CSRF-001 state-changing requests without a same-site Origin are refused" time="0.005892" classname="test"/>
+	<testsuite name="Platform" time="0.424361" disabled="0" errors="0" tests="14" failures="0" skipped="0" hostname="vm">
+		<testcase name="SMK-001 health endpoint reports the expected storage engine" time="0.030965" classname="test"/>
+		<testcase name="SMK-002 every public page responds 200 with HTML" time="0.048447" classname="test"/>
+		<testcase name="SMK-003 catalogue API returns published products and active collections" time="0.002078" classname="test"/>
+		<testcase name="SEC-HDR-001 security headers are present on pages and API responses" time="0.004214" classname="test"/>
+		<testcase name="SEC-HDR-002 API responses are never cached and send no permissive CORS headers" time="0.001547" classname="test"/>
+		<testcase name="SEC-STA-001 server code, configuration, data and dependency files are not downloadable" time="0.018723" classname="test"/>
+		<testcase name="SEC-STA-002 internal documentation, tests and audit reports are not publicly served" time="0.006361" classname="test"/>
+		<testcase name="SEC-STA-003 path traversal attempts cannot read files outside the web root" time="0.012382" classname="test"/>
+		<testcase name="SEC-STA-004 the staff studio is only reachable at its private address" time="0.003443" classname="test"/>
+		<testcase name="SEC-STA-005 static files only answer GET and HEAD" time="0.004572" classname="test"/>
+		<testcase name="NAV-404-001 unknown pages return 404 with a branded HTML page for browsers" time="0.002186" classname="test"/>
+		<testcase name="API-001 malformed requests are rejected without leaking internals" time="0.008144" classname="test"/>
+		<testcase name="API-002 request bodies over 7 MB are refused" time="0.049082" classname="test"/>
+		<testcase name="SEC-CSRF-001 state-changing requests without a same-site Origin are refused" time="0.004984" classname="test"/>
 	</testsuite>
-	<testsuite name="Staff studio" time="35.153781" disabled="0" errors="0" tests="14" failures="0" skipped="0" hostname="vm">
-		<testcase name="ADM-001 every studio API route refuses anonymous requests" time="0.063967" classname="test"/>
-		<testcase name="ADM-002 owner setup requires the setup key and can only happen once" time="0.048834" classname="test"/>
-		<testcase name="ADM-003 a correct password alone never opens the studio (two-factor is mandatory)" time="0.038546" classname="test"/>
-		<testcase name="ADM-004 authenticator codes are locked out after five wrong attempts per sign-in" time="4.247521" classname="test"/>
-		<testcase name="ADM-005 wrong studio passwords are rate limited per username" time="0.015362" classname="test"/>
-		<testcase name="ADM-006 the studio session cookie is HttpOnly, Secure and SameSite=Strict" time="30.015880" classname="test"/>
-		<testcase name="ADM-007 catalogue staff (workers) cannot reach owner-only areas" time="0.095599" classname="test"/>
-		<testcase name="ADM-008 uploads accept only genuine PNG, JPEG or WebP images" time="0.023498" classname="test"/>
-		<testcase name="ADM-009 product fields that point at files cannot escape the asset folders" time="0.010680" classname="test"/>
-		<testcase name="ADM-010 order status changes follow the payment rules" time="0.050841" classname="test"/>
-		<testcase name="ADM-011 stock changes are bounded integers" time="0.015051" classname="test"/>
-		<testcase name="ADM-012 enquiry text containing markup is stored as text and escaped by the studio" time="0.008880" classname="test"/>
-		<testcase name="ENQ-001 enquiries validate input, honour the honeypot and are rate limited" time="0.047941" classname="test"/>
-		<testcase name="ADM-013 removing a team member ends their sessions immediately" time="0.099161" classname="test"/>
+	<testsuite name="Staff studio" time="43.815699" disabled="0" errors="0" tests="14" failures="0" skipped="0" hostname="vm">
+		<testcase name="ADM-001 every studio API route refuses anonymous requests" time="0.075104" classname="test"/>
+		<testcase name="ADM-002 owner setup requires the setup key and can only happen once" time="0.057915" classname="test"/>
+		<testcase name="ADM-003 a correct password alone never opens the studio (two-factor is mandatory)" time="0.043305" classname="test"/>
+		<testcase name="ADM-004 authenticator codes are locked out after five wrong attempts per sign-in" time="12.898078" classname="test"/>
+		<testcase name="ADM-005 wrong studio passwords are rate limited per username" time="0.016515" classname="test"/>
+		<testcase name="ADM-006 the studio session cookie is HttpOnly, Secure and SameSite=Strict" time="30.017931" classname="test"/>
+		<testcase name="ADM-007 catalogue staff (workers) cannot reach owner-only areas" time="0.099607" classname="test"/>
+		<testcase name="ADM-008 uploads accept only genuine PNG, JPEG or WebP images" time="0.024540" classname="test"/>
+		<testcase name="ADM-009 product fields that point at files cannot escape the asset folders" time="0.011523" classname="test"/>
+		<testcase name="ADM-010 order status changes follow the payment rules" time="0.065914" classname="test"/>
+		<testcase name="ADM-011 stock changes are bounded integers" time="0.019677" classname="test"/>
+		<testcase name="ADM-012 enquiry text containing markup is stored as text and escaped by the studio" time="0.010629" classname="test"/>
+		<testcase name="ENQ-001 enquiries validate input, honour the honeypot and are rate limited" time="0.047803" classname="test"/>
+		<testcase name="ADM-013 removing a team member ends their sessions immediately" time="0.073152" classname="test"/>
 	</testsuite>
-	<testsuite name="PostgreSQL store" time="0.991575" disabled="0" errors="0" tests="11" failures="0" skipped="0" hostname="vm">
-		<testcase name="DB-001 schema initialisation is idempotent" time="0.008312" classname="test"/>
-		<testcase name="DB-002 a saved snapshot loads back identically (money stays in exact pence)" time="0.018928" classname="test"/>
-		<testcase name="DB-003 a save that breaks a constraint is rolled back completely" time="0.020265" classname="test"/>
-		<testcase name="DB-004 duplicate references, emails and slugs are refused by the database" time="0.011006" classname="test"/>
-		<testcase name="DB-005 a session for a customer that does not exist is refused (referential integrity)" time="0.005695" classname="test"/>
-		<testcase name="DB-006 webhook event IDs are remembered once" time="0.003362" classname="test"/>
-		<testcase name="DB-008 after the first save, a change writes only the rows that changed" time="0.669278" classname="test"/>
-		<testcase name="DB-009 removed rows are deleted and new rows inserted" time="0.029194" classname="test"/>
-		<testcase name="DB-010 a failed save leaves nothing half-written, and the next save catches up" time="0.017484" classname="test"/>
-		<testcase name="DB-011 a second store instance (a restart) loads the data and saves incrementally from it" time="0.032556" classname="test"/>
-		<testcase name="DB-007 password hashes are stored, never plain-text passwords" time="0.004911" classname="test"/>
+	<testsuite name="PostgreSQL store" time="1.012985" disabled="0" errors="0" tests="11" failures="0" skipped="0" hostname="vm">
+		<testcase name="DB-001 schema initialisation is idempotent" time="0.006974" classname="test"/>
+		<testcase name="DB-002 a saved snapshot loads back identically (money stays in exact pence)" time="0.025011" classname="test"/>
+		<testcase name="DB-003 a save that breaks a constraint is rolled back completely" time="0.011955" classname="test"/>
+		<testcase name="DB-004 duplicate references, emails and slugs are refused by the database" time="0.010259" classname="test"/>
+		<testcase name="DB-005 a session for a customer that does not exist is refused (referential integrity)" time="0.003995" classname="test"/>
+		<testcase name="DB-006 webhook event IDs are remembered once" time="0.002938" classname="test"/>
+		<testcase name="DB-008 after the first save, a change writes only the rows that changed" time="0.704199" classname="test"/>
+		<testcase name="DB-009 removed rows are deleted and new rows inserted" time="0.031899" classname="test"/>
+		<testcase name="DB-010 a failed save leaves nothing half-written, and the next save catches up" time="0.017222" classname="test"/>
+		<testcase name="DB-011 a second store instance (a restart) loads the data and saves incrementally from it" time="0.040065" classname="test"/>
+		<testcase name="DB-007 password hashes are stored, never plain-text passwords" time="0.004588" classname="test"/>
 	</testsuite>
-	<testcase name="UNIT-001 TOTP matches the RFC 6238 SHA-1 test vectors" time="0.002455" classname="test"/>
-	<testcase name="UNIT-002 TOTP accepts one step of clock drift and rejects older codes" time="0.000574" classname="test"/>
-	<testcase name="UNIT-003 TOTP refuses a replayed time step" time="0.000230" classname="test"/>
-	<testcase name="UNIT-004 TOTP rejects malformed input" time="0.000148" classname="test"/>
-	<testcase name="UNIT-005 Generated secrets are 160-bit base32 and unique" time="0.000350" classname="test"/>
-	<testcase name="UNIT-006 Sealed authenticator secrets round-trip and are not stored in clear text" time="0.000807" classname="test"/>
-	<testcase name="UNIT-007 Recovery codes are hashed and each works only once" time="0.000514" classname="test"/>
-	<testcase name="UNIT-008 Sign-in challenges expire after use" time="0.000189" classname="test"/>
-	<!-- tests 100 -->
+	<testcase name="UNIT-001 TOTP matches the RFC 6238 SHA-1 test vectors" time="0.002462" classname="test"/>
+	<testcase name="UNIT-002 TOTP accepts one step of clock drift and rejects older codes" time="0.000614" classname="test"/>
+	<testcase name="UNIT-003 TOTP refuses a replayed time step" time="0.000189" classname="test"/>
+	<testcase name="UNIT-004 TOTP rejects malformed input" time="0.000141" classname="test"/>
+	<testcase name="UNIT-005 Generated secrets are 160-bit base32 and unique" time="0.000390" classname="test"/>
+	<testcase name="UNIT-006 Sealed authenticator secrets round-trip and are not stored in clear text" time="0.000703" classname="test"/>
+	<testcase name="UNIT-007 Recovery codes are hashed and each works only once" time="0.000521" classname="test"/>
+	<testcase name="UNIT-008 Sign-in challenges expire after use" time="0.000243" classname="test"/>
+	<!-- tests 101 -->
 	<!-- suites 5 -->
-	<!-- pass 97 -->
+	<!-- pass 98 -->
 	<!-- fail 0 -->
 	<!-- cancelled 0 -->
 	<!-- skipped 0 -->
 	<!-- todo 3 -->
-	<!-- duration_ms 40762.957513 -->
+	<!-- duration_ms 49860.403488 -->
 </testsuites>

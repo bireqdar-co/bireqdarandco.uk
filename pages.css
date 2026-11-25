@@ -45,7 +45,7 @@ html body.cinematic main h2 em,
 html body.cinematic main h3 em { font-style: italic; color: var(--hc-gold-soft) !important; }
 html body.cinematic .page-section--light h2 em,
 html body.cinematic .page-section--light h3 em,
-html body.cinematic .paper-card h2 em { color: #670626 !important; }
+html body.cinematic .paper-card h2 em { color: #D38C9D !important; }
 .cine-button-ink { background: var(--hc-ink); border-color: var(--hc-ink); color: var(--hc-cream); }
 .cine-button-ink:hover { background: #1d4030; border-color: #1d4030; color: var(--hc-cream); }
 .page-section--light .cine-button:not(.cine-button-solid):not(.cine-button-ink) { color: var(--hc-ink); border-color: rgba(15, 42, 30, .4); }
@@ -655,7 +655,7 @@ body.cinematic main.store-main.account-main { padding-top: calc(var(--hc-header)
 html body.cinematic .account-card h1 em,
 html body.cinematic .account-card h2 em,
 html body.cinematic .order-confirmation h1 em,
-html body.cinematic .cart-content h2 em { color: #670626 !important; }
+html body.cinematic .cart-content h2 em { color: #D38C9D !important; }
 body.cinematic .paper-card .paper-note,
 body.cinematic .bespoke-form-heading p:not(.cine-eyebrow) { color: var(--hc-ink-soft) !important; }
 

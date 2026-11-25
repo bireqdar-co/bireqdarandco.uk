@@ -213,7 +213,7 @@ function seed() {
     'col-bespoke':'A starting point for personal commissions, shaped around your brief.'
   };
   for (const collection of collections) collection.description = collectionCopy[collection.id] || collection.description;
-  return { version:6, customers:[], customerSessions:{}, setupKey: process.env.ADMIN_SETUP_KEY || crypto.randomBytes(24).toString('hex'), admin:null, sessions:{}, settings:{ currency:'GBP', storeName:'BIREQDAR&CO.', shippingCents:null, automaticTaxEnabled:false, vatRegistered:false }, collections, products, orders:[], reservations:[] };
+  return { version:6, customers:[], customerSessions:{}, setupKey: process.env.ADMIN_SETUP_KEY || crypto.randomBytes(24).toString('hex'), admin:null, sessions:{}, settings:{ currency:'GBP', storeName:'BIREQDAR&CO.', shippingCents:0, automaticTaxEnabled:false, vatRegistered:false }, collections, products, orders:[], reservations:[] };
 }
 
 let db;
@@ -388,6 +388,12 @@ async function loadDb() {
         specifications:[{label:'Type',value:'Concept design (3D sample)'},{label:'Availability',value:'Not for sale'}] });
     }
     db.version=15;migrated=true;
+  }
+  if(Number(db.version||0)<16){
+    // Complimentary delivery on every order (owner decision, 25 November 2026).
+    // After this one-off change the fee can still be edited in the studio settings.
+    db.settings.shippingCents=0;
+    db.version=16;migrated=true;
   }
   for(const p of db.products){if(!Number.isFinite(Number(p.vatRate))){p.vatRate=20;migrated=true;}if(p.brand===undefined){p.brand='';migrated=true;}if(p.bullionType===undefined){p.bullionType='';migrated=true;}if(p.gemstoneType===undefined){p.gemstoneType='';migrated=true;}}
   for (const key of Object.keys(db.sessions)) {
