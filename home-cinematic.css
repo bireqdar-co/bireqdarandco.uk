@@ -149,7 +149,7 @@
   margin-bottom: clamp(34px, 5vh, 56px);
 }
 .shop-by .cine-eyebrow,
-.pieces .cine-eyebrow { color: #8d6c35; }
+.pieces .cine-eyebrow { color: #7a5c2b; }
 .shop-by h2,
 .pieces h2 { font-size: clamp(40px, 5vw, 84px); color: var(--hc-ink) !important; }
 html body.home-cinematic .shop-by h2 em,

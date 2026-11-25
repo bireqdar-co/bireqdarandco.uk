@@ -1,0 +1,86 @@
+{
+  "overflow": [],
+  "consoleErrors": [],
+  "a11y": [],
+  "perf": [
+    {
+      "url": "/",
+      "ttfb": 7,
+      "fcp": 2148,
+      "lcp": 2232,
+      "cls": 0,
+      "load": 5858,
+      "requests": 19,
+      "totalKB": 1180,
+      "jsKB": 14,
+      "cssKB": 135,
+      "imageKB": 1002
+    },
+    {
+      "url": "/shop.html",
+      "ttfb": 4,
+      "fcp": 2516,
+      "lcp": 3024,
+      "cls": 0,
+      "load": 9821,
+      "requests": 31,
+      "totalKB": 1958,
+      "jsKB": 31,
+      "cssKB": 270,
+      "imageKB": 1642
+    },
+    {
+      "url": "/product.html?slug=tennis-chain-3mm-925-silver",
+      "ttfb": 3,
+      "fcp": 2188,
+      "lcp": 2488,
+      "cls": 0,
+      "load": 2199,
+      "requests": 21,
+      "totalKB": 604,
+      "jsKB": 25,
+      "cssKB": 270,
+      "imageKB": 301
+    },
+    {
+      "url": "/checkout.html",
+      "ttfb": 10,
+      "fcp": 2176,
+      "lcp": 2740,
+      "cls": 0,
+      "load": 2799,
+      "requests": 27,
+      "totalKB": 837,
+      "jsKB": 23,
+      "cssKB": 464,
+      "imageKB": 325
+    },
+    {
+      "url": "/account.html",
+      "ttfb": 5,
+      "fcp": 2620,
+      "lcp": 3088,
+      "cls": 0,
+      "load": 3325,
+      "requests": 18,
+      "totalKB": 649,
+      "jsKB": 36,
+      "cssKB": 259,
+      "imageKB": 346
+    }
+  ],
+  "search": {
+    "925": 1,
+    "Tennis Chain 3 mm": 1,
+    "tenn": 1,
+    "TENNIS": 1,
+    "tennis chain": 1,
+    "Tenis chain": 1,
+    "<script>alert(1)</script>": 0,
+    "%": 0,
+    "\"": 0,
+    "' OR 1=1 --": 0,
+    "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx": 0,
+    "zzzz-no-such-piece": 0
+  }
+}

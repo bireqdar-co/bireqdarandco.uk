@@ -111,7 +111,7 @@ body.page-account .account-card {
   box-shadow: none !important;
   color: var(--hc-ink);
 }
-body.page-account .account-card > .eyebrow { color: #8d6c35 !important; margin: 0 0 12px; }
+body.page-account .account-card > .eyebrow { color: #7a5c2b !important; margin: 0 0 12px; }
 body.page-account .account-title { margin: 0 !important; font-size: clamp(38px, 3.6vw, 56px) !important; line-height: 1 !important; color: var(--hc-ink) !important; }
 body.page-account .account-copy { margin: 14px 0 0 !important; font-size: 17px; line-height: 1.55; color: var(--hc-ink-soft) !important; }
 
@@ -350,7 +350,7 @@ body.page-account .account-dashboard-panel {
   box-shadow: 0 30px 80px rgba(0, 0, 0, .3) !important;
   color: var(--hc-ink);
 }
-body.page-account .account-dashboard-panel .eyebrow { color: #8d6c35 !important; }
+body.page-account .account-dashboard-panel .eyebrow { color: #7a5c2b !important; }
 body.page-account .account-dashboard-panel h2 { margin: 8px 0 0 !important; font-size: clamp(30px, 3vw, 44px) !important; line-height: 1.05; color: var(--hc-ink) !important; }
 body.page-account .account-panel-intro,
 body.page-account .account-dashboard-panel > p:not(.eyebrow):not(.form-error) { margin: 12px 0 0 !important; font-size: 16px; line-height: 1.6; color: var(--hc-ink-soft) !important; }
@@ -359,7 +359,7 @@ body.page-account .account-orders-heading { display: flex; justify-content: spac
 body.page-account .account-orders-heading button { padding: 0 0 3px !important; border: 0 !important; border-bottom: 1px solid currentColor !important; background: none !important; font: 500 10px/1 var(--hc-ui) !important; letter-spacing: .18em; text-transform: uppercase; color: var(--hc-ink-soft) !important; cursor: pointer; }
 body.page-account .account-order { padding: 22px 0 !important; margin: 0 !important; border: 0 !important; border-top: 1px solid rgba(15, 42, 30, .14) !important; border-radius: 0 !important; background: none !important; box-shadow: none !important; }
 body.page-account .account-order-head { display: flex; justify-content: space-between; gap: 16px; font: 400 20px/1.2 var(--hc-display); }
-body.page-account .account-order-status { font: 500 11px/1.4 var(--hc-ui); letter-spacing: .14em; text-transform: uppercase; color: #8d6c35; }
+body.page-account .account-order-status { font: 500 11px/1.4 var(--hc-ui); letter-spacing: .14em; text-transform: uppercase; color: #7a5c2b; }
 body.page-account .account-wishlist-item { display: flex !important; align-items: center; justify-content: space-between; gap: 16px; padding: 16px 0 !important; border: 0 !important; border-top: 1px solid rgba(15, 42, 30, .14) !important; background: none !important; border-radius: 0 !important; box-shadow: none !important; }
 body.page-account .account-wishlist-item a { display: flex; align-items: center; gap: 18px; color: var(--hc-ink); }
 body.page-account .account-wishlist-item img { width: 76px; height: 92px; object-fit: cover; border-radius: 0 !important; }

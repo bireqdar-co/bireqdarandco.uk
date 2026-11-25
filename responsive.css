@@ -376,3 +376,13 @@ body.cinematic main.store-main { min-height: 100svh; }
   html body.cinematic .site-header.cine-header nav a.mobile-nav-secondary { font-size: 16px !important; margin-top: 0 !important; padding-top: 6px !important; border-top: 0 !important; }
   html body.cinematic .site-header.cine-header nav a.mobile-nav-enquire { grid-column: 1 / -1; }
 }
+
+/* ---- Accessibility audit fixes (WCAG 2.2 AA contrast, Nov 2026) ---------------------- */
+/* Eyebrows sitting on the cream paper cards use the deeper gold so small caps stay legible. */
+html body.cinematic .paper-card .eyebrow,
+html body.cinematic .bespoke-card .eyebrow { color: #7a5c2b !important; }
+/* Sort label on the cream catalogue background. */
+html body.cinematic .catalogue .sort-label { color: #55665a !important; }
+/* Wishlist heart on light product photographs: a soft veil keeps it visible on any image. */
+html body.cinematic .store-card .wishlist-toggle:not([aria-pressed="true"]) { background: rgba(6, 35, 24, .38) !important; color: #fbf7ee !important; }
+html body.cinematic .store-card .wishlist-toggle:not([aria-pressed="true"]):hover { background: rgba(242, 236, 224, .9) !important; color: var(--hc-ink) !important; }

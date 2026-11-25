@@ -88,7 +88,7 @@
  const greeting=()=>{const h=new Date().getHours();return h<12?'Good morning':h<18?'Good afternoon':'Good evening'};
  async function load(){
   const d=await api('/api/account');
-  if(!d.authenticated){renderAccess();return}
+  if(!d.authenticated){renderAccess();if(params.get('forgot'))renderForgot();return}
   const returnPath=params.get('return')||'';
   if(params.get('wishlist')){
    try{await api('/api/account/wishlist',{method:'POST',body:JSON.stringify({productId:params.get('wishlist'),action:'add'})})}

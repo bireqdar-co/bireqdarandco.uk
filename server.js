@@ -31,6 +31,12 @@ const ADMIN_PATH = (() => {
   return /^[A-Za-z0-9_-]{16,128}$/.test(raw) ? raw : '';
 })();
 const STAFF_SESSION_MS = 1000 * 60 * 60 * 8;
+// How long an unpaid Stripe checkout holds the pieces in it. Stripe's minimum session
+// lifetime is 30 minutes; 45 minutes gives clients time without blocking unique pieces for long.
+const CHECKOUT_HOLD_MS = 45 * 60 * 1000;
+// When a pending order stops holding stock: its own hold time, or 24 hours for orders created
+// before holds were introduced (their Stripe sessions used Stripe's 24-hour default).
+function holdEndsAt(order) { const created=Date.parse(order.createdAt)||0; return Number(order.holdUntil)||created+24*60*60*1000; }
 const GOOGLE_CLIENT_ID = String(process.env.GOOGLE_CLIENT_ID || '').trim();
 const googleAuthClient = GOOGLE_CLIENT_ID ? new OAuth2Client(GOOGLE_CLIENT_ID) : null;
 const MAX_BODY = 7 * 1024 * 1024;
@@ -104,6 +110,12 @@ async function sendAccountVerificationEmail(to,verificationUrl,idempotencyKey) {
   const text=`Please confirm your BIREQDAR & CO. account by opening this link: ${verificationUrl}\n\nThis link expires in 24 hours and can only be used once. If you did not create this account, you can ignore this email.`;
   const html=`<div style="max-width:600px;margin:auto;padding:32px;background:#062318;color:#ede8da;font:16px/1.6 Georgia,serif"><p style="color:#d4af78;letter-spacing:.18em">BIREQDAR &amp; CO.</p><h1 style="font-weight:400">Confirm your <em style="color:#d4af78">account.</em></h1><p>Please confirm your email address to complete your client account registration.</p><p><a style="display:inline-block;padding:14px 22px;background:#d4af78;color:#10271d;text-decoration:none" href="${verificationUrl}">Confirm email address</a></p><p>This link expires in 24 hours and can only be used once. If you did not create this account, you can ignore this email.</p></div>`;
   const result=await sendCustomerEmail({to,subject:'Confirm your BIREQDAR & CO. account',text,html,idempotencyKey,eventName:'account_verification_email'});
+  return result.sent;
+}
+async function sendAccountExistsEmail(to,signInUrl,resetUrl,idempotencyKey) {
+  const text=`Someone (hopefully you) tried to create a BIREQDAR & CO. account with this email address, but you already have one.\n\nSign in: ${signInUrl}\nForgotten your password? Reset it here: ${resetUrl}\n\nIf this was not you, you can ignore this email. Your account has not been changed.`;
+  const html=`<div style="max-width:600px;margin:auto;padding:32px;background:#062318;color:#ede8da;font:16px/1.6 Georgia,serif"><p style="color:#d4af78;letter-spacing:.18em">BIREQDAR &amp; CO.</p><h1 style="font-weight:400">You already have an <em style="color:#d4af78">account.</em></h1><p>Someone, hopefully you, tried to create a new account with this email address. Your existing account has not been changed.</p><p><a style="color:#d4af78" href="${escapeHtml(signInUrl)}">Sign in</a> &nbsp;·&nbsp; <a style="color:#d4af78" href="${escapeHtml(resetUrl)}">Reset your password</a></p><p style="color:#a9b8ad;font-size:14px">If this was not you, you can ignore this email.</p></div>`;
+  const result=await sendCustomerEmail({to,subject:'You already have a BIREQDAR & CO. account',text,html,idempotencyKey,eventName:'account_exists_email'});
   return result.sent;
 }
 function escapeHtml(value) {
@@ -531,6 +543,8 @@ function validCity(value) { return /^[\p{L}\p{M} .,'’()-]{2,100}$/u.test(Strin
 function validPhone(value) { const phone=String(value||'').trim();if(!phone)return true;const digits=phone.replace(/\D/g,'');return /^[+()\d .-]{7,25}$/.test(phone)&&digits.length>=7&&digits.length<=15; }
 function validPostalCode(value) { const postal=String(value||'').trim();return /^[A-Z0-9][A-Z0-9 -]{1,18}[A-Z0-9]$/i.test(postal); }
 function validCountry(value) { return /^[\p{L}\p{M} .,'’()-]{2,80}$/u.test(String(value||'').trim()); }
+// A piece shoppers may see: published, and not a sample listing in production.
+function isPubliclyListed(p) { return !!p&&!!p.published&&(process.env.NODE_ENV!=='production'||!p.isDemo); }
 function publicProduct(p) {
   return { id:p.id, slug:p.slug, name:p.name, type:p.type, category:p.category||'', collectionId:p.collectionId, short:p.short, description:p.description, priceCents:p.priceCents, stock:p.stock, currency:p.currency || db.settings.currency, image:p.image, images:Array.isArray(p.images)?p.images:[], finishOptions:Array.isArray(p.finishOptions)?p.finishOptions:[], inquiryOnly:!!p.inquiryOnly, isDemo:!!p.isDemo, specifications:Array.isArray(p.specifications)?p.specifications:[], vatRate:Number.isFinite(Number(p.vatRate))?Number(p.vatRate):20, brand:p.brand||'', bullionType:p.bullionType||'', gemstoneType:p.gemstoneType||'', gender:p.gender||'', model3d:modelAvailable(p.model3d)?p.model3d:'', spinFrames:spinAvailable(p.spinFrames) };
 }
@@ -680,7 +694,7 @@ function productInput(input, existing=null) {
   const spinFrames=(Array.isArray(input.spinFrames)?input.spinFrames:String(input.spinFrames||'').split(/\r?\n/)).map(x=>clean(x,200)).filter(Boolean);
   if (spinFrames.length>72) throw Object.assign(new Error('Use at most 72 frames for a 360° view.'),{status:400});
   if (spinFrames.some(x=>!SPIN_FRAME_PATTERN.test(x)||x.includes('..'))) throw Object.assign(new Error('360° frames must be .jpg, .webp or .png files inside assets/ or uploads/, one per line.'),{status:400});
-  if (model3d && !/^\/?(assets|uploads)\/[\w\/.-]+\.glb$/i.test(model3d)) throw Object.assign(new Error('The 3D model must be a .glb file inside assets/ or uploads/, for example assets/3d/watch.glb.'),{status:400});
+  if (model3d && (!/^\/?(assets|uploads)\/[\w\/.-]+\.glb$/i.test(model3d)||model3d.includes('..'))) throw Object.assign(new Error('The 3D model must be a .glb file inside assets/ or uploads/, for example assets/3d/watch.glb.'),{status:400});
   return {
     ...(existing||{}), id:existing?.id || id(), slug:existing?.slug || `${slugify(name)}-${crypto.randomBytes(2).toString('hex')}`,
     name, type, category, collectionId, vatRate, brand:type==='watch'?brand:'', bullionType:type==='bullion'?bullionType:'', gemstoneType:type==='jewellery'?gemstoneType:'', gender, short:clean(input.short,220), description:clean(input.description,5000),
@@ -730,7 +744,10 @@ async function stripeCheckout(order, req) {
   if (!keyMode) throw Object.assign(new Error('Stripe secret key is not valid.'),{status:503});
   const host=APP_URL || `http://${req.headers.host}`;
   const params=new URLSearchParams();
-  params.set('mode','payment'); params.set('success_url',`${host}/order.html?ref=${encodeURIComponent(order.reference)}&session_id={CHECKOUT_SESSION_ID}`); params.set('cancel_url',`${host}/checkout.html?cancelled=1`);
+  params.set('mode','payment');
+  // Deterministic per order, so a retried request sends identical parameters under its idempotency key.
+  if(order.holdUntil)params.set('expires_at',String(Math.floor(Number(order.holdUntil)/1000)));
+  params.set('success_url',`${host}/order.html?ref=${encodeURIComponent(order.reference)}&session_id={CHECKOUT_SESSION_ID}`); params.set('cancel_url',`${host}/checkout.html?cancelled=1`);
   params.set('customer_email',order.customer.email); params.set('client_reference_id',order.reference); params.set('metadata[orderId]',order.id);
   if (db.settings.automaticTaxEnabled) params.set('automatic_tax[enabled]','true');
   order.items.forEach((it,i)=>{
@@ -742,17 +759,29 @@ async function stripeCheckout(order, req) {
   if (!response.ok) throw Object.assign(new Error(data.error?.message || 'Could not start secure checkout.'),{status:502});
   return data;
 }
+// Ends an open Stripe Checkout session. Returns true when the session can no longer be paid.
+async function expireStripeSession(sessionId) {
+  const key=process.env.STRIPE_SECRET_KEY;
+  if(!key||!/^cs_[A-Za-z0-9_]+$/.test(String(sessionId||'')))return true;
+  try {
+    const response=await fetch(`https://api.stripe.com/v1/checkout/sessions/${encodeURIComponent(sessionId)}/expire`,{method:'POST',headers:{Authorization:`Bearer ${key}`},signal:AbortSignal.timeout(10000)});
+    const data=await response.json().catch(()=>({}));
+    if(response.ok)return data.status==='expired';
+    // Already expired is fine; a completed or unknown session is not.
+    return /expired/i.test(String(data.error?.message||''))&&!/complete/i.test(String(data.error?.message||''));
+  } catch { return false; }
+}
 function computeOrder(lines, country='') {
   if (!Array.isArray(lines)||lines.length<1||lines.length>30) throw Object.assign(new Error('Your bag is empty or contains too many items.'),{status:400});
   const items=[]; let total=0; let tax=0; let currency=null; const requestedByProduct=new Map(); const now=Date.now(); const reservedByProduct=new Map();
-  // Stripe Checkout sessions expire after 24 hours. Treat still-pending paid-flow orders as
-  // temporary stock holds, so parallel checkouts cannot sell the same last item twice.
-  for(const order of db.orders){if(order.status!=='payment_pending'||order.paymentMode!=='stripe'||now-Date.parse(order.createdAt)>=24*60*60*1000)continue;for(const item of order.items||[])reservedByProduct.set(item.id,(reservedByProduct.get(item.id)||0)+Number(item.quantity||0));}
+  // Unpaid Stripe checkouts hold their pieces until the session expires (CHECKOUT_HOLD_MS),
+  // so parallel checkouts cannot sell the same last item twice.
+  for(const order of db.orders){if(order.status!=='payment_pending'||order.paymentMode!=='stripe'||now>=holdEndsAt(order))continue;for(const item of order.items||[])reservedByProduct.set(item.id,(reservedByProduct.get(item.id)||0)+Number(item.quantity||0));}
   const uk=db.settings.vatRegistered&&isUnitedKingdom(country);
   for (const line of lines) {
     if(!line||typeof line!=='object'||Array.isArray(line))throw Object.assign(new Error('Each bag item must be a valid product line.'),{status:400});
     const p=db.products.find(x=>x.id===line.id && x.published);
-    const qty=Math.floor(Number(line.quantity));
+    const qty=Number(line.quantity);
     if (!p || p.type==='watch' || p.inquiryOnly || p.priceCents===null) throw Object.assign(new Error('One item in your bag can no longer be purchased. Please refresh your bag.'),{status:409});
     if (!Number.isInteger(qty)||qty<1||qty>10) throw Object.assign(new Error('Choose a quantity between 1 and 10.'),{status:400});
     const requested=(requestedByProduct.get(p.id)||0)+qty;const available=p.stock-(reservedByProduct.get(p.id)||0);if(available<requested)throw Object.assign(new Error(`${p.name} does not have enough stock available for all selected finishes.`),{status:409});requestedByProduct.set(p.id,requested);
@@ -801,7 +830,7 @@ async function handleApi(req,res,url) {
       const session=customerSession(req);if(!session?.customer)return send(res,200,{authenticated:false});
       const ownEmail=String(session.customer.email||'').toLowerCase(),verified=!!session.customer.emailVerifiedAt;const orders=db.orders.filter(o=>o.customerId===session.customer.id||(verified&&!o.customerId&&o.paymentMode==='stripe'&&String(o.customer?.email||'').toLowerCase()===ownEmail)).slice(0,30).map(o=>({reference:o.reference,createdAt:o.createdAt,status:o.status,statusHistory:Array.isArray(o.statusHistory)?o.statusHistory:[],totalCents:o.totalCents,currency:o.currency,items:o.items.map(i=>({name:i.name,quantity:i.quantity}))}));
       const savedIds=Array.isArray(session.customer.wishlist)?session.customer.wishlist:[];
-      const wishlist=savedIds.map(productId=>db.products.find(product=>product.id===productId)).filter(Boolean).map(publicProduct);
+      const wishlist=savedIds.map(productId=>db.products.find(product=>product.id===productId&&isPubliclyListed(product))).filter(Boolean).map(publicProduct);
       return send(res,200,{authenticated:true,customer:publicCustomer(session.customer),deliveryAddress:session.customer.deliveryAddress||null,orders,wishlist});
     }
     if(req.method==='POST'&&route==='/api/account/address'){
@@ -824,8 +853,8 @@ async function handleApi(req,res,url) {
     }
     if(req.method==='POST'&&route==='/api/account/wishlist'){
       const session=customerSession(req);if(!session?.customer)return send(res,401,{error:'Sign in to save favourites to your wishlist.'});
-      const b=await readJson(req),productId=clean(b.productId,100),product=db.products.find(item=>item.id===productId);
-      if(!product)return send(res,404,{error:'This piece is no longer available.'});
+      const b=await readJson(req),productId=clean(b.productId,100),product=db.products.find(item=>item.id===productId&&isPubliclyListed(item));
+      if(!product&&b.action!=='remove')return send(res,404,{error:'This piece is no longer available.'});
       const wishlist=Array.isArray(session.customer.wishlist)?session.customer.wishlist:[];
       session.customer.wishlist=b.action==='remove'?wishlist.filter(id=>id!==productId):[...new Set([...wishlist,productId])].slice(0,100);
       await saveDb();return send(res,200,{ok:true,wishlist:session.customer.wishlist});
@@ -842,14 +871,24 @@ async function handleApi(req,res,url) {
       if(!ageConfirmed)return send(res,400,{error:'You must confirm that you are 18 or older to create an account.'});
       if(!process.env.RESEND_API_KEY||!process.env.RESEND_FROM_EMAIL)return send(res,503,{error:'Account verification email is temporarily unavailable. Please try again later.'});
       if(process.env.NODE_ENV==='production'&&!APP_URL)return send(res,503,{error:'Secure account email links are not configured. Please contact our team.'});
-      if(db.customers.some(c=>c.email===email))return send(res,409,{error:'An account with this email already exists. Please sign in.'});
+      const accepted={verificationRequired:true,message:'Check your email to confirm your account. The link is valid for 24 hours.'};
+      const existing=db.customers.find(c=>c.email===email);
+      if(existing){
+        // Same answer as a new registration, so the form never reveals who has an account.
+        // The real owner is told by email and can sign in or reset their password instead.
+        await hashPassword(password);
+        const site=(APP_URL||`http://${req.headers.host||'localhost'}`).replace(/\/$/,'');
+        const sent=await sendAccountExistsEmail(email,`${site}/account.html`,`${site}/account.html?forgot=1`,`account-exists/${existing.id}/${Math.floor(Date.now()/(15*60*1000))}`);
+        securityEvent(req,'customer_registration_existing_email');
+        return send(res,sent?201:503,sent?accepted:{error:'We could not send the confirmation email. Use “Resend confirmation email” below or try again shortly.',verificationRequired:true});
+      }
       const verificationToken=crypto.randomBytes(32).toString('base64url');
       const customer={id:id(),title,firstName,lastName,name,email,dateOfBirth,phone,passwordHash:await hashPassword(password),ageConfirmedAt:new Date().toISOString(),emailVerificationTokenHash:tokenHash(verificationToken),emailVerificationExpiresAt:Date.now()+24*60*60*1000,createdAt:new Date().toISOString()};
       db.customers.push(customer);await saveDb();
       const verificationUrl=new URL('/account.html',APP_URL||`http://${req.headers.host||'localhost'}`);verificationUrl.searchParams.set('verify',verificationToken);
       const sent=await sendAccountVerificationEmail(email,verificationUrl.toString(),`account-verification/${customer.id}/${tokenHash(verificationToken)}`);
       securityEvent(req,sent?'customer_account_created':'customer_account_verification_delivery_failed');
-      return send(res,sent?201:503,sent?{verificationRequired:true,message:'Check your email to confirm your account. The link is valid for 24 hours.'}:{error:'We could not send the confirmation email. Use “Resend confirmation email” below or try again shortly.',verificationRequired:true});
+      return send(res,sent?201:503,sent?accepted:{error:'We could not send the confirmation email. Use “Resend confirmation email” below or try again shortly.',verificationRequired:true});
     }
     if(req.method==='POST'&&route==='/api/account/login'){
       const b=await readJson(req),email=clean(b.email,254).toLowerCase(),password=String(b.password||'');
@@ -904,7 +943,15 @@ async function handleApi(req,res,url) {
       if(customer?.googleSub&&customer.googleSub!==googleSub)return send(res,409,{error:'This email is connected to a different Google account. Please contact us.'});
       const googleFirstName=clean(claims?.given_name,60),googleLastName=clean(claims?.family_name,60);
       if(!customer){customer={id:id(),name,firstName:googleFirstName,lastName:googleLastName, email,googleSub,createdAt:new Date().toISOString()};db.customers.push(customer);securityEvent(req,'customer_account_created',{provider:'google'});}
-      else {customer.googleSub=googleSub;if(!customer.name)customer.name=name;if(!customer.firstName)customer.firstName=googleFirstName;if(!customer.lastName)customer.lastName=googleLastName;}
+      else {
+        if(!customer.emailVerifiedAt){
+          // Whoever registered this email never proved they own it. Google has now proved the
+          // real owner does, so drop the unverified password and any sessions tied to it.
+          delete customer.passwordHash;delete customer.salt;delete customer.hash;delete customer.resetTokenHash;delete customer.resetExpiresAt;
+          for(const [hash,session] of Object.entries(db.customerSessions))if(session.customerId===customer.id)delete db.customerSessions[hash];
+          securityEvent(req,'customer_unverified_password_removed',{provider:'google'});
+        }
+        customer.googleSub=googleSub;if(!customer.name)customer.name=name;if(!customer.firstName)customer.firstName=googleFirstName;if(!customer.lastName)customer.lastName=googleLastName;}
       customer.emailVerifiedAt=customer.emailVerifiedAt||new Date().toISOString();delete customer.emailVerificationTokenHash;delete customer.emailVerificationExpiresAt;
       const token=issueCustomerSession(customer);await saveDb();securityEvent(req,'customer_login_succeeded',{provider:'google'});
       return send(res,200,{authenticated:true,customer:publicCustomer(customer)},{'Set-Cookie':customerCookie(token)});
@@ -930,6 +977,8 @@ async function handleApi(req,res,url) {
       const resetHash=tokenHash(resetToken),customer=db.customers.find(c=>c.resetTokenHash===resetHash&&Number(c.resetExpiresAt)>Date.now());
       if(!customer)return send(res,400,{error:'This reset link is invalid or expired. Request a new one.'});
       customer.passwordHash=await hashPassword(password);delete customer.salt;delete customer.hash;delete customer.resetTokenHash;delete customer.resetExpiresAt;
+      // The reset link reached this inbox, which proves ownership, so the email is now confirmed.
+      if(!customer.emailVerifiedAt){customer.emailVerifiedAt=new Date().toISOString();delete customer.emailVerificationTokenHash;delete customer.emailVerificationExpiresAt;}
       for(const [hash,session] of Object.entries(db.customerSessions))if(session.customerId===customer.id)delete db.customerSessions[hash];
       await saveDb();securityEvent(req,'customer_password_reset');return send(res,200,{ok:true,message:'Your password has been reset. You can now sign in.'});
     }
@@ -960,6 +1009,8 @@ async function handleApi(req,res,url) {
     const prior=db.orders.find(o=>o.checkoutRequestId===requestId);
     if(prior){
       if((prior.customerId||null)!==(account?.id||null))return send(res,409,{error:'This checkout session belongs to a different client account. Return to your bag and try again.'});
+      // A retry after the hold has lapsed (or after cancellation) must start a fresh checkout.
+      if(prior.paymentMode==='stripe'&&(prior.status!=='payment_pending'||Date.now()>=holdEndsAt(prior)-60*1000))return send(res,409,{error:'Your previous checkout has expired. Please review your bag and continue again.'});
       if(prior.paymentMode==='stripe'){
         const session=await stripeCheckout(prior,req);
         if(session){prior.stripeSessionId=session.id;await saveDb();return send(res,200,{ok:true,redirectUrl:session.url,reference:prior.reference});}
@@ -968,7 +1019,7 @@ async function handleApi(req,res,url) {
     }
     const totals=computeOrder(b.items,customer.country); assertLiveCheckoutReady(totals.items); if(process.env.NODE_ENV==='production'&&totals.items.some(item=>item.isDemo))return send(res,409,{error:'This piece is not available to order online. Please enquire with our team.'}); const shippingCents=Number.isInteger(db.settings.shippingCents)?db.settings.shippingCents:0;
     const createdAt=new Date().toISOString();
-    const order={id:id(),reference:`BC-${shortRef()}`,checkoutRequestId:requestId,createdAt,status:'payment_pending',statusHistory:[{status:'payment_pending',at:createdAt}],paymentMode:process.env.STRIPE_SECRET_KEY&&!totals.items.some(item=>item.isDemo)?'stripe':'preview',customer,customerId:account?.id||null,guest:!account,items:totals.items,subtotalCents:totals.total,taxCents:totals.tax,shippingCents,totalCents:totals.total+shippingCents,currency:totals.currency};
+    const order={id:id(),reference:`BC-${shortRef()}`,checkoutRequestId:requestId,createdAt,holdUntil:Date.parse(createdAt)+CHECKOUT_HOLD_MS,status:'payment_pending',statusHistory:[{status:'payment_pending',at:createdAt}],paymentMode:process.env.STRIPE_SECRET_KEY&&!totals.items.some(item=>item.isDemo)?'stripe':'preview',customer,customerId:account?.id||null,guest:!account,items:totals.items,subtotalCents:totals.total,taxCents:totals.tax,shippingCents,totalCents:totals.total+shippingCents,currency:totals.currency};
     if(account&&b.saveAddress===true)account.deliveryAddress={phone:customer.phone,address1:customer.address1,address2:customer.address2,city:customer.city,postalCode:customer.postalCode,country:customer.country};
     db.orders.unshift(order); await saveDb();
     try {
@@ -1004,6 +1055,11 @@ async function handleApi(req,res,url) {
           order.paidAt=new Date().toISOString(); if (Number.isInteger(session.total_details?.amount_tax)) order.taxCents=session.total_details.amount_tax;
           for (const item of order.items) { const p=db.products.find(x=>x.id===item.id); if (p) p.stock=Math.max(0,p.stock-item.quantity); }
           if(order.status==='payment_pending'){order.status='paid';order.statusHistory=Array.isArray(order.statusHistory)?order.statusHistory:[];order.statusHistory.push({status:'paid',at:order.paidAt});}
+          else if(order.status==='cancelled'){
+            // Money arrived for an order staff had cancelled: never leave it hidden as cancelled.
+            order.status='paid';order.paidAfterCancellation=true;order.statusHistory=Array.isArray(order.statusHistory)?order.statusHistory:[];order.statusHistory.push({status:'paid',at:order.paidAt,note:'Payment received after the order was cancelled. Check stock, then ship or refund.'});
+            securityEvent(req,'stripe_paid_after_cancellation',{reference:order.reference});
+          }
           await saveDb();securityEvent(req,'stripe_payment_confirmed');
         }
         if(!order.confirmationEmailSentAt&&order.customer?.email&&process.env.RESEND_API_KEY&&process.env.RESEND_FROM_EMAIL){
@@ -1116,6 +1172,11 @@ async function handleApi(req,res,url) {
       const b=await readJson(req),o=db.orders.find(x=>x.id===orderRoute[1]);
       if(!o)return send(res,404,{error:'Order not found.'});
       if(!['processing','shipped','delivered','fulfilled','cancelled'].includes(b.status))return send(res,400,{error:'Choose a valid order status.'});
+      if(o.paymentMode==='stripe'&&b.status==='cancelled'&&o.status==='payment_pending'&&o.stripeSessionId){
+        // Close the client's Stripe page first, so they cannot pay for an order we have cancelled.
+        const closed=await expireStripeSession(o.stripeSessionId);
+        if(!closed)return send(res,409,{error:'The client may be paying right now, so this order was not cancelled. Wait a few minutes and check again.'});
+      }
       if(o.paymentMode==='stripe'&&b.status==='processing'&&!['paid','processing'].includes(o.status))return send(res,409,{error:'Only confirmed paid orders can be prepared.'});
       if(o.paymentMode==='stripe'&&b.status==='shipped'&&!['paid','processing','shipped'].includes(o.status))return send(res,409,{error:'Only confirmed paid orders can be marked as shipped.'});
       if(o.paymentMode==='stripe'&&b.status==='delivered'&&!['shipped','delivered'].includes(o.status))return send(res,409,{error:'Mark the order as shipped before marking it delivered.'});
@@ -1141,7 +1202,14 @@ async function handleApi(req,res,url) {
 function mime(file) {
   const ext=path.extname(file).toLowerCase();return ({'.html':'text/html; charset=utf-8','.css':'text/css; charset=utf-8','.js':'text/javascript; charset=utf-8','.json':'application/json; charset=utf-8','.png':'image/png','.jpg':'image/jpeg','.jpeg':'image/jpeg','.svg':'image/svg+xml','.webp':'image/webp','.glb':'model/gltf-binary','.mjs':'text/javascript; charset=utf-8'})[ext]||'application/octet-stream';
 }
+// Browsers get the branded 404 page; scripts and assets get a short plain-text answer.
+function notFound(req,res) {
+  const wantsHtml=req.method==='GET'&&/text\/html/i.test(String(req.headers.accept||''));
+  if(wantsHtml){try{return text(res,404,fsSync.readFileSync(path.join(ROOT,'404.html')),'text/html; charset=utf-8');}catch{}}
+  return text(res,404,'Not found.');
+}
 async function staticFile(req,res,url) {
+  if(req.method!=='GET'&&req.method!=='HEAD')return text(res,405,'Method not allowed.','text/plain; charset=utf-8',{Allow:'GET, HEAD'});
   let pathname;
   try { pathname=decodeURIComponent(url.pathname); }
   catch { return text(res,400,'Bad request.'); }
@@ -1154,8 +1222,10 @@ async function staticFile(req,res,url) {
     pathname='/admin.html';
   }
   const normalizedPath=pathname.toLowerCase();
-  const blockedFiles=new Set(['/server.js','/postgres-store.js','/staff-auth.js','/package.json','/package-lock.json','/yarn.lock','/pnpm-lock.yaml','/render.yaml','/readme.md']);
-  if(normalizedPath.startsWith('/data/')||normalizedPath.startsWith('/db/')||normalizedPath.startsWith('/node_modules/')||normalizedPath.startsWith('/scripts/')||normalizedPath.startsWith('/.')||blockedFiles.has(normalizedPath))return text(res,404,'Not found.');
+  const blockedFiles=new Set(['/server.js','/postgres-store.js','/staff-auth.js','/package.json','/package-lock.json','/yarn.lock','/pnpm-lock.yaml','/render.yaml','/readme.md','/skills-lock.json']);
+  // Internal folders (tests, audit reports, tooling) and documentation files are never public.
+  const blockedFolders=['/data/','/db/','/node_modules/','/scripts/','/tests/','/testing/','/tools/','/api/','/bireqdarandco.uk/'];
+  if(blockedFolders.some(folder=>normalizedPath.startsWith(folder))||normalizedPath.startsWith('/.')||normalizedPath.endsWith('.md')||blockedFiles.has(normalizedPath))return notFound(req,res);
   const isUpload=pathname.startsWith('/uploads/');
   const base=isUpload?UPLOAD_DIR:ROOT;
   const relative=isUpload?pathname.slice('/uploads/'.length):pathname.slice(1);
@@ -1166,9 +1236,9 @@ async function staticFile(req,res,url) {
   try { stat=await fs.stat(full); }
   catch(err) {
     if(err.code!=='ENOENT'&&err.code!=='ENOTDIR')console.error(JSON.stringify({event:'static_lookup_error',code:err.code||'unknown'}));
-    return text(res,404,'Not found.');
+    return notFound(req,res);
   }
-  if(!stat.isFile())return text(res,404,'Not found.');
+  if(!stat.isFile())return notFound(req,res);
   try { const [realBase,realFile]=await Promise.all([fs.realpath(base),fs.realpath(full)]);if(realFile!==realBase&&!realFile.startsWith(realBase+path.sep))return text(res,403,'Forbidden.'); }
   catch { return text(res,404,'Not found.'); }
   res.writeHead(200,{'Content-Type':mime(full),'Cache-Control':studioRequest?'no-store':full.includes(`${path.sep}uploads${path.sep}`)?'public, max-age=31536000, immutable':'no-cache'});
@@ -1190,7 +1260,8 @@ async function main(req,res) {
   } catch(err) {
     const requestId=String(req.headers['rndr-id']||crypto.randomUUID()).slice(0,100);
     console.error(JSON.stringify({event:'request_error',requestId,code:err.code||'application_error',status:err.status||500}));
-    if(!res.headersSent){const status=err.status||500;send(res,status,{error:status<500?err.message:'Something went wrong. Please try again.'});}else res.end();
+    // An oversized body is left unread, so close the connection instead of reusing it.
+    if(!res.headersSent){const status=err.status||500;send(res,status,{error:status<500?err.message:'Something went wrong. Please try again.'},status===413?{Connection:'close'}:{});}else res.end();
   }
 }
 loadDb().then(()=>{

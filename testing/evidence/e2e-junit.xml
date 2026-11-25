@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<testsuites>
+	<testsuite name="Storefront in the browser" time="199.777783" disabled="0" errors="0" tests="15" failures="0" skipped="0" hostname="vm">
+		<testcase name="E2E-NAV-001 every page loads without script errors (desktop and phone)" time="22.459570" classname="test"/>
+		<testcase name="E2E-NAV-002 every internal link on every page resolves (no broken links)" time="11.124367" classname="test"/>
+		<testcase name="E2E-NAV-003 back/forward and refresh keep the shopper where they were" time="4.215920" classname="test"/>
+		<testcase name="E2E-SRCH-001 catalogue search: exact, partial, case, special characters, empty, very long, no results" time="3.134084" classname="test"/>
+		<testcase name="E2E-SRCH-002 search tolerates a common misspelling" time="1.191812" classname="test"/>
+		<testcase name="E2E-CART-001 bag: add, persist after refresh, quantity limits, remove, empty state" time="2.888827" classname="test"/>
+		<testcase name="E2E-CART-002 a piece withdrawn while in the bag cannot be checked out" time="1.511098" classname="test"/>
+		<testcase name="E2E-CHK-001 guest checkout journey reaches Stripe test checkout; double-clicking creates one order" time="3.304940" classname="test"/>
+		<testcase name="E2E-CHK-002 checkout refuses an invalid form in the browser before calling the server" time="1.815677" classname="test"/>
+		<testcase name="E2E-SEC-001 enquiry markup does not execute in the staff studio" time="2.370308" classname="test"/>
+		<testcase name="E2E-RESP-001 no page scrolls sideways at any tested width (portrait and landscape)" time="93.349153" classname="test"/>
+		<testcase name="E2E-RESP-002 the phone menu opens, traps nothing, and closes with Escape" time="1.487621" classname="test"/>
+		<testcase name="E2E-A11Y-001 automated accessibility checks (images, labels, names, language, headings, contrast)" time="9.434802" classname="test"/>
+		<testcase name="E2E-A11Y-002 reduced-motion preference is honoured" time="0.838827" classname="test"/>
+		<testcase name="E2E-PERF-001 page-load metrics on a throttled mid-range phone (Fast 3G-like, 4x CPU)" time="39.163301" classname="test"/>
+	</testsuite>
+	<!-- tests 15 -->
+	<!-- suites 1 -->
+	<!-- pass 15 -->
+	<!-- fail 0 -->
+	<!-- cancelled 0 -->
+	<!-- skipped 0 -->
+	<!-- todo 0 -->
+	<!-- duration_ms 200020.671111 -->
+</testsuites>
