@@ -1,20 +1,20 @@
 ▶ Storefront in the browser
-  ✔ E2E-NAV-001 every page loads without script errors (desktop and phone) (22321.751565ms)
-  ✔ E2E-NAV-002 every internal link on every page resolves (no broken links) (11555.155016ms)
-  ✔ E2E-NAV-003 back/forward and refresh keep the shopper where they were (4474.138521ms)
-  ✔ E2E-SRCH-001 catalogue search: exact, partial, case, special characters, empty, very long, no results (3307.815552ms)
-  ✔ E2E-SRCH-002 search tolerates a common misspelling (1111.729086ms)
-  ✔ E2E-CART-001 bag: add, persist after refresh, quantity limits, remove, empty state (2953.504996ms)
-  ✔ E2E-CART-002 a piece withdrawn while in the bag cannot be checked out (1606.845613ms)
-  ✔ E2E-CHK-001 guest checkout journey reaches Stripe test checkout; double-clicking creates one order (3369.958558ms)
-  ✔ E2E-CHK-002 checkout refuses an invalid form in the browser before calling the server (1932.386327ms)
-  ✔ E2E-SEC-001 enquiry markup does not execute in the staff studio (2400.648627ms)
-  ✔ E2E-RESP-001 no page scrolls sideways at any tested width (portrait and landscape) (97376.770193ms)
-  ✔ E2E-RESP-002 the phone menu opens, traps nothing, and closes with Escape (1537.413657ms)
-  ✔ E2E-A11Y-001 automated accessibility checks (images, labels, names, language, headings, contrast) (9693.597807ms)
-  ✔ E2E-A11Y-002 reduced-motion preference is honoured (839.748966ms)
-  ✔ E2E-PERF-001 page-load metrics on a throttled mid-range phone (Fast 3G-like, 4x CPU) (39901.165951ms)
-✔ Storefront in the browser (205367.471061ms)
+  ✔ E2E-NAV-001 every page loads without script errors (desktop and phone) (22010.868751ms)
+  ✔ E2E-NAV-002 every internal link on every page resolves (no broken links) (11235.617953ms)
+  ✔ E2E-NAV-003 back/forward and refresh keep the shopper where they were (4261.119331ms)
+  ✔ E2E-SRCH-001 catalogue search: exact, partial, case, special characters, empty, very long, no results (3206.274095ms)
+  ✔ E2E-SRCH-002 search tolerates a common misspelling (1111.807874ms)
+  ✔ E2E-CART-001 bag: add, persist after refresh, quantity limits, remove, empty state (2854.944944ms)
+  ✔ E2E-CART-002 a piece withdrawn while in the bag cannot be checked out (1560.341558ms)
+  ✔ E2E-CHK-001 guest checkout journey reaches Stripe test checkout; double-clicking creates one order (3281.096618ms)
+  ✔ E2E-CHK-002 checkout refuses an invalid form in the browser before calling the server (1935.319857ms)
+  ✔ E2E-SEC-001 enquiry markup does not execute in the staff studio (2408.918468ms)
+  ✔ E2E-RESP-001 no page scrolls sideways at any tested width (portrait and landscape) (94790.621598ms)
+  ✔ E2E-RESP-002 the phone menu opens, traps nothing, and closes with Escape (1449.006656ms)
+  ✔ E2E-A11Y-001 automated accessibility checks (images, labels, names, language, headings, contrast) (9312.452382ms)
+  ✔ E2E-A11Y-002 reduced-motion preference is honoured (816.953246ms)
+  ✔ E2E-PERF-001 page-load metrics on a throttled mid-range phone (Fast 3G-like, 4x CPU) (40145.544743ms)
+✔ Storefront in the browser (201255.53422ms)
 ℹ tests 15
 ℹ suites 1
 ℹ pass 15
@@ -22,4 +22,4 @@
 ℹ cancelled 0
 ℹ skipped 0
 ℹ todo 0
-ℹ duration_ms 205662.927159
+ℹ duration_ms 201493.945722

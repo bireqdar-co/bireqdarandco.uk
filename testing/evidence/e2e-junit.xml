@@ -1,21 +1,21 @@
 <?xml version="1.0" encoding="utf-8"?>
 <testsuites>
-	<testsuite name="Storefront in the browser" time="205.367471" disabled="0" errors="0" tests="15" failures="0" skipped="0" hostname="vm">
-		<testcase name="E2E-NAV-001 every page loads without script errors (desktop and phone)" time="22.321752" classname="test"/>
-		<testcase name="E2E-NAV-002 every internal link on every page resolves (no broken links)" time="11.555155" classname="test"/>
-		<testcase name="E2E-NAV-003 back/forward and refresh keep the shopper where they were" time="4.474139" classname="test"/>
-		<testcase name="E2E-SRCH-001 catalogue search: exact, partial, case, special characters, empty, very long, no results" time="3.307816" classname="test"/>
-		<testcase name="E2E-SRCH-002 search tolerates a common misspelling" time="1.111729" classname="test"/>
-		<testcase name="E2E-CART-001 bag: add, persist after refresh, quantity limits, remove, empty state" time="2.953505" classname="test"/>
-		<testcase name="E2E-CART-002 a piece withdrawn while in the bag cannot be checked out" time="1.606846" classname="test"/>
-		<testcase name="E2E-CHK-001 guest checkout journey reaches Stripe test checkout; double-clicking creates one order" time="3.369959" classname="test"/>
-		<testcase name="E2E-CHK-002 checkout refuses an invalid form in the browser before calling the server" time="1.932386" classname="test"/>
-		<testcase name="E2E-SEC-001 enquiry markup does not execute in the staff studio" time="2.400649" classname="test"/>
-		<testcase name="E2E-RESP-001 no page scrolls sideways at any tested width (portrait and landscape)" time="97.376770" classname="test"/>
-		<testcase name="E2E-RESP-002 the phone menu opens, traps nothing, and closes with Escape" time="1.537414" classname="test"/>
-		<testcase name="E2E-A11Y-001 automated accessibility checks (images, labels, names, language, headings, contrast)" time="9.693598" classname="test"/>
-		<testcase name="E2E-A11Y-002 reduced-motion preference is honoured" time="0.839749" classname="test"/>
-		<testcase name="E2E-PERF-001 page-load metrics on a throttled mid-range phone (Fast 3G-like, 4x CPU)" time="39.901166" classname="test"/>
+	<testsuite name="Storefront in the browser" time="201.255534" disabled="0" errors="0" tests="15" failures="0" skipped="0" hostname="vm">
+		<testcase name="E2E-NAV-001 every page loads without script errors (desktop and phone)" time="22.010869" classname="test"/>
+		<testcase name="E2E-NAV-002 every internal link on every page resolves (no broken links)" time="11.235618" classname="test"/>
+		<testcase name="E2E-NAV-003 back/forward and refresh keep the shopper where they were" time="4.261119" classname="test"/>
+		<testcase name="E2E-SRCH-001 catalogue search: exact, partial, case, special characters, empty, very long, no results" time="3.206274" classname="test"/>
+		<testcase name="E2E-SRCH-002 search tolerates a common misspelling" time="1.111808" classname="test"/>
+		<testcase name="E2E-CART-001 bag: add, persist after refresh, quantity limits, remove, empty state" time="2.854945" classname="test"/>
+		<testcase name="E2E-CART-002 a piece withdrawn while in the bag cannot be checked out" time="1.560342" classname="test"/>
+		<testcase name="E2E-CHK-001 guest checkout journey reaches Stripe test checkout; double-clicking creates one order" time="3.281097" classname="test"/>
+		<testcase name="E2E-CHK-002 checkout refuses an invalid form in the browser before calling the server" time="1.935320" classname="test"/>
+		<testcase name="E2E-SEC-001 enquiry markup does not execute in the staff studio" time="2.408918" classname="test"/>
+		<testcase name="E2E-RESP-001 no page scrolls sideways at any tested width (portrait and landscape)" time="94.790622" classname="test"/>
+		<testcase name="E2E-RESP-002 the phone menu opens, traps nothing, and closes with Escape" time="1.449007" classname="test"/>
+		<testcase name="E2E-A11Y-001 automated accessibility checks (images, labels, names, language, headings, contrast)" time="9.312452" classname="test"/>
+		<testcase name="E2E-A11Y-002 reduced-motion preference is honoured" time="0.816953" classname="test"/>
+		<testcase name="E2E-PERF-001 page-load metrics on a throttled mid-range phone (Fast 3G-like, 4x CPU)" time="40.145545" classname="test"/>
 	</testsuite>
 	<!-- tests 15 -->
 	<!-- suites 1 -->
@@ -24,5 +24,5 @@
 	<!-- cancelled 0 -->
 	<!-- skipped 0 -->
 	<!-- todo 0 -->
-	<!-- duration_ms 205662.927159 -->
+	<!-- duration_ms 201493.945722 -->
 </testsuites>

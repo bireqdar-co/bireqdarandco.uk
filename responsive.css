@@ -388,15 +388,13 @@ html body.cinematic .store-card .wishlist-toggle:not([aria-pressed="true"]) { ba
 html body.cinematic .store-card .wishlist-toggle:not([aria-pressed="true"]):hover { background: rgba(242, 236, 224, .9) !important; color: var(--hc-ink) !important; }
 
 /* ---- Burgundy satin italic accents (owner request, Nov 2026) -------------------------
-   Every italic accent word in a heading is filled with the burgundy satin texture.
-   Dark sections use a brighter cut of the same satin so it stays legible; cream sections
-   use the deeper cut. Browsers without text-clipping show a solid burgundy instead. */
-html body :is(h1, h2, h3) em { color: #a8355a !important; }
-html body :is(.shop-by-head, .pieces-head, .pieces, .page-head, .detail-split, .paper-card, .cart-content, .shop-empty, .flip-stack-intro, .account-card, .account-page-heading, .admin-page .auth-panel) :is(h1, h2, h3) em { color: #5a1a2c !important; }
+   Every italic accent word in a heading is filled with the owner's burgundy satin image,
+   in its original colours. Browsers without text-clipping show its average colour. */
+html body :is(h1, h2, h3) em { color: #3b141e !important; }
 @supports ((-webkit-background-clip: text) or (background-clip: text)) {
   html body :is(h1, h2, h3) em {
-    background-color: #a8355a;
-    background-image: url("assets/textures/burgundy-satin-bright.jpg");
+    background-color: #3b141e;
+    background-image: url("assets/textures/burgundy-satin.jpg");
     background-size: cover;
     background-position: 30% 50%;
     background-repeat: no-repeat;
@@ -409,9 +407,5 @@ html body :is(.shop-by-head, .pieces-head, .pieces, .page-head, .detail-split, .
        negative margin keeps the word exactly where it was. */
     padding: .18em .22em .3em .22em;
     margin: -.18em -.22em -.3em -.22em;
-  }
-  html body :is(.shop-by-head, .pieces-head, .pieces, .page-head, .detail-split, .paper-card, .cart-content, .shop-empty, .flip-stack-intro, .account-card, .account-page-heading, .admin-page .auth-panel) :is(h1, h2, h3) em {
-    background-color: #5a1a2c;
-    background-image: url("assets/textures/burgundy-satin.jpg");
   }
 }
