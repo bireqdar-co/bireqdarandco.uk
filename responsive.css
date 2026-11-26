@@ -389,15 +389,19 @@ html body.cinematic .store-card .wishlist-toggle:not([aria-pressed="true"]):hove
 
 /* ---- Burgundy satin italic accents (owner request, Nov 2026) -------------------------
    Every italic accent word in a heading is filled with the owner's burgundy satin.
-   Cream sections use the satin image in its exact colours. On the dark green sections the
-   exact satin disappears into the background, so they use a lighter cut of the same satin
-   with a soft glow around the letters. Browsers without text-clipping show a solid colour. */
-html body :is(h1, h2, h3) em { color: #7e2a36 !important; }
-html body :is(.shop-by-head, .pieces-head, .pieces, .page-head, .detail-split, .paper-card, .cart-content, .shop-empty, .flip-stack-intro, .account-card, .account-page-heading, .admin-page .auth-panel) :is(h1, h2, h3) em { color: #43121a !important; }
+   Light sections set --lx-satin to the satin in its exact colours; emerald sections fall
+   back to a lifted cut of the same satin with a soft glow, so the words stay legible.
+   Browsers without text-clipping show a solid colour instead. */
+html body :is(.shop-by-head, .pieces-head, .pieces, .page-head, .detail-split, .paper-card, .cart-content, .shop-empty, .flip-stack-intro, .account-card, .account-page-heading, .admin-page .auth-panel) {
+  --lx-satin: url("assets/textures/burgundy-satin.jpg");
+  --lx-satin-filter: none;
+  --lx-satin-fallback: #43121a;
+}
+html body :is(h1, h2, h3) em { color: var(--lx-satin-fallback, #7e2a36) !important; }
 @supports ((-webkit-background-clip: text) or (background-clip: text)) {
   html body :is(h1, h2, h3) em {
-    background-color: #7e2a36;
-    background-image: url("assets/textures/burgundy-satin-light.jpg");
+    background-color: var(--lx-satin-fallback, #7e2a36);
+    background-image: var(--lx-satin, url("assets/textures/burgundy-satin-light.jpg"));
     background-size: cover;
     background-position: 30% 50%;
     background-repeat: no-repeat;
@@ -405,17 +409,11 @@ html body :is(.shop-by-head, .pieces-head, .pieces, .page-head, .detail-split, .
     background-clip: text;
     -webkit-text-fill-color: transparent;
     color: transparent !important;
-    /* A faint light halo separates the satin letters from the dark green. */
-    filter: drop-shadow(0 0 .06em rgba(255, 232, 228, .26)) drop-shadow(0 .02em .02em rgba(0, 0, 0, .35));
+    filter: var(--lx-satin-filter, drop-shadow(0 0 .06em rgba(255, 232, 228, .26)) drop-shadow(0 .02em .02em rgba(0, 0, 0, .35)));
     /* Didot / Bodoni italics swing beyond their letter box (the tails of f, y, j and the
        top of k, l, d). Extra padding gives the texture room to reach them; the matching
        negative margin keeps the word exactly where it was. */
     padding: .18em .22em .3em .22em;
     margin: -.18em -.22em -.3em -.22em;
-  }
-  html body :is(.shop-by-head, .pieces-head, .pieces, .page-head, .detail-split, .paper-card, .cart-content, .shop-empty, .flip-stack-intro, .account-card, .account-page-heading, .admin-page .auth-panel) :is(h1, h2, h3) em {
-    background-color: #43121a;
-    background-image: url("assets/textures/burgundy-satin.jpg");
-    filter: none;
   }
 }

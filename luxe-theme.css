@@ -1,0 +1,253 @@
+/* =====================================================================================
+   BIREQDAR & CO. — Maison palette (November 2026)
+   One central colour system for the storefront. Loaded last on every public page.
+
+   Emerald is kept for deliberate statements (homepage hero, the Watches chapter, the
+   header, the account welcome panel, the About statement and the footer). Everything
+   else sits on warm ivory, soft cream, champagne beige or white so the photography
+   leads. Sections opt into a tone in the HTML:
+     .lx-light        warm ivory section          .lx-beige   champagne beige section
+     .lx-white        white section               .lx-dark    keep emerald inside a light page
+     body.lx-light-page   the page's main content is light (product, bag, checkout, …)
+   ===================================================================================== */
+
+/* ---------- 1. Tokens ---------------------------------------------------------------- */
+.cinematic {
+  /* Palette */
+  --lx-emerald: #0b362d;          /* signature deep emerald */
+  --lx-emerald-dark: #06271f;     /* dark emerald */
+  --lx-emerald-mid: #134a3d;      /* hover / lifted emerald */
+  --lx-ivory: #f7f4ed;            /* warm ivory */
+  --lx-cream: #f5f0e6;            /* soft cream */
+  --lx-beige: #e8e0d3;            /* champagne beige */
+  --lx-white: #ffffff;
+  --lx-gold: #c4a46c;             /* muted champagne gold (accents on emerald) */
+  --lx-gold-soft: #d9c49a;
+  --lx-gold-deep: #7a5c2b;        /* gold for text on light backgrounds (AA contrast) */
+  --lx-charcoal: #252522;         /* soft charcoal */
+  --lx-charcoal-soft: #57544c;
+
+  /* Semantic roles */
+  --lx-bg: var(--lx-ivory);
+  --lx-bg-alt: var(--lx-beige);
+  --lx-bg-statement: var(--lx-emerald);
+  --lx-heading: var(--lx-emerald);
+  --lx-text: var(--lx-charcoal);
+  --lx-text-soft: var(--lx-charcoal-soft);
+  --lx-text-on-dark: #f3efe6;
+  --lx-text-on-dark-soft: #c5cdc3;
+  --lx-accent: var(--lx-gold-deep);
+  --lx-line: rgba(11, 54, 45, .14);
+  --lx-line-strong: rgba(11, 54, 45, .32);
+  --lx-line-on-dark: rgba(196, 164, 108, .22);
+  --lx-btn-bg: var(--lx-emerald);
+  --lx-btn-text: var(--lx-ivory);
+  --lx-btn-hover: var(--lx-emerald-mid);
+  --lx-field-bg: var(--lx-white);
+  --lx-field-line: rgba(37, 37, 34, .28);
+  --lx-card-bg: var(--lx-white);
+  --lx-focus: var(--lx-gold-deep);
+
+  /* Legacy names used across the existing stylesheets, mapped onto the palette */
+  --hc-night: var(--lx-emerald-dark);
+  --hc-deep: var(--lx-emerald);
+  --hc-emerald: var(--lx-emerald-mid);
+  --hc-cream: var(--lx-ivory);
+  --hc-paper: var(--lx-beige);
+  --hc-ink: var(--lx-emerald);
+  --hc-ink-soft: var(--lx-charcoal-soft);
+  --hc-gold: var(--lx-gold);
+  --hc-gold-soft: var(--lx-gold-soft);
+  --hc-text: var(--lx-text-on-dark);
+  --hc-text-soft: var(--lx-text-on-dark-soft);
+}
+
+/* ---------- 2. Header: a refined emerald bar ------------------------------------------ */
+/* On the homepage the header still floats over the emerald hero and turns solid on scroll.
+   Everywhere else it is a solid emerald bar, so it never sits over an ivory section. */
+html body.cinematic:not(.home-page) .site-header.cine-header,
+html body.cinematic .site-header.cine-header.is-solid {
+  background: var(--lx-emerald-dark) !important;
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+  box-shadow: 0 1px 0 rgba(196, 164, 108, .22) !important;
+}
+
+/* ---------- 3. Light sections ------------------------------------------------------- */
+html body.cinematic :is(.lx-light, .lx-beige, .lx-white),
+html body.cinematic.lx-light-page main {
+  /* Re-point the legacy colour names so existing components adapt automatically */
+  --hc-night: var(--lx-tone);
+  --hc-deep: var(--lx-tone-alt);
+  --hc-text: var(--lx-text);
+  --hc-text-soft: var(--lx-text-soft);
+  --hc-gold: var(--lx-gold-deep);
+  --hc-gold-soft: var(--lx-gold-deep);
+  --hc-cream: var(--lx-tone);
+  /* Satin italics use the exact satin colours on light grounds */
+  --lx-satin: url("assets/textures/burgundy-satin.jpg");
+  --lx-satin-filter: none;
+  --lx-satin-fallback: #43121a;
+  --lx-tone: var(--lx-ivory);
+  --lx-tone-alt: var(--lx-beige);
+  background-color: var(--lx-tone) !important;
+  background-image: none !important;
+  color: var(--lx-text);
+}
+html body.cinematic .lx-beige { --lx-tone: var(--lx-beige); --lx-tone-alt: var(--lx-cream); }
+html body.cinematic .lx-white { --lx-tone: var(--lx-white); --lx-tone-alt: var(--lx-ivory); }
+html body.cinematic.lx-light-page { background: var(--lx-ivory) !important; }
+
+/* Emerald kept on purpose inside a light page */
+html body.cinematic .lx-dark {
+  --hc-night: var(--lx-emerald-dark);
+  --hc-deep: var(--lx-emerald);
+  --hc-text: var(--lx-text-on-dark);
+  --hc-text-soft: var(--lx-text-on-dark-soft);
+  --hc-gold: var(--lx-gold);
+  --hc-gold-soft: var(--lx-gold-soft);
+  --lx-satin: url("assets/textures/burgundy-satin-light.jpg");
+  --lx-satin-filter: drop-shadow(0 0 .06em rgba(255, 232, 228, .26)) drop-shadow(0 .02em .02em rgba(0, 0, 0, .35));
+  --lx-satin-fallback: #7e2a36;
+  color: var(--lx-text-on-dark);
+}
+
+/* Typography on light grounds */
+html:not(#lx) body.cinematic :is(.lx-light, .lx-beige, .lx-white, .lx-light-page main) :is(h1, h2, h3, h4):not(.lx-dark *) {
+  color: var(--lx-heading) !important;
+}
+html:not(#lx) body.cinematic :is(.lx-light, .lx-beige, .lx-white, .lx-light-page main) :is(p, li, dd, dt, label, legend, small, figcaption, blockquote, td, th, summary):not(.lx-dark *):not(.cine-eyebrow):not(.eyebrow):not(.chapter-count) {
+  color: var(--lx-text);
+}
+html:not(#lx) body.cinematic :is(.lx-light, .lx-beige, .lx-white, .lx-light-page main) :is(.cine-eyebrow, .eyebrow, .chapter-count span):not(.lx-dark *) {
+  color: var(--lx-accent) !important;
+}
+html:not(#lx) body.cinematic :is(.lx-light, .lx-beige, .lx-white, .lx-light-page main) .chapter-count:not(.lx-dark *) { color: var(--lx-text-soft) !important; }
+
+/* Buttons on light grounds: emerald primary, emerald hairline secondary */
+html:not(#lx) body.cinematic :is(.lx-light, .lx-beige, .lx-white, .lx-light-page main) :is(.cine-button-solid, .button.primary, .primary-button, button.primary, .checkout-submit, #add-to-bag):not(.lx-dark *) {
+  background: var(--lx-btn-bg) !important;
+  border-color: var(--lx-btn-bg) !important;
+  color: var(--lx-btn-text) !important;
+  box-shadow: none !important;
+}
+html:not(#lx) body.cinematic :is(.lx-light, .lx-beige, .lx-white, .lx-light-page main) :is(.cine-button-solid, .button.primary, .primary-button, button.primary, .checkout-submit, #add-to-bag):not(.lx-dark *):hover {
+  background: var(--lx-btn-hover) !important;
+  border-color: var(--lx-btn-hover) !important;
+}
+html:not(#lx) body.cinematic :is(.lx-light, .lx-beige, .lx-white, .lx-light-page main) .cine-button:not(.cine-button-solid):not(.lx-dark *) {
+  border-color: var(--lx-line-strong) !important;
+  color: var(--lx-emerald) !important;
+  background: transparent !important;
+}
+html:not(#lx) body.cinematic :is(.lx-light, .lx-beige, .lx-white, .lx-light-page main) .cine-button:not(.cine-button-solid):not(.lx-dark *):hover {
+  border-color: var(--lx-emerald) !important;
+  background: rgba(11, 54, 45, .05) !important;
+}
+html:not(#lx) body.cinematic :is(.lx-light, .lx-beige, .lx-white, .lx-light-page main) .cine-link:not(.lx-dark *) { color: var(--lx-emerald) !important; }
+html:not(#lx) body.cinematic :is(.lx-light, .lx-beige, .lx-white, .lx-light-page main) .cine-link:not(.lx-dark *) :is(span, .cine-arrow) { color: var(--lx-accent) !important; }
+
+/* Chips and fine lines */
+html:not(#lx) body.cinematic :is(.lx-light, .lx-beige, .lx-white) .chapter-chips a {
+  border-color: var(--lx-line-strong) !important;
+  color: var(--lx-emerald) !important;
+}
+html:not(#lx) body.cinematic :is(.lx-light, .lx-beige, .lx-white) .chapter-chips a:hover { border-color: var(--lx-accent) !important; color: var(--lx-accent) !important; }
+
+/* Focus states on light grounds */
+html body.cinematic :is(.lx-light, .lx-beige, .lx-white, .lx-light-page main) :is(a, button, input, select, textarea, [tabindex]):focus-visible {
+  outline: 2px solid var(--lx-emerald) !important;
+  outline-offset: 3px;
+}
+
+/* ---------- 4. Homepage --------------------------------------------------------------- */
+html body.cinematic .chapters { background: var(--lx-ivory); }
+html body.cinematic .chapter.lx-light .chapter-frame,
+html body.cinematic .chapter.lx-beige .chapter-frame { background: var(--lx-tone) !important; }
+/* Velvet photography sits on a soft frame instead of a black field */
+html body.cinematic :is(.chapter.lx-light, .chapter.lx-beige) .chapter-media { background: var(--lx-tone-alt); }
+/* The single emerald chapter (Watches) uses the signature deep emerald */
+html body.cinematic .chapter:not([data-tone="light"]) .chapter-frame { background: var(--lx-emerald) !important; }
+html body.cinematic .chapter-index.on-light { color: var(--lx-emerald); }
+
+/* ---------- 5. Product pages: a bright gallery --------------------------------------- */
+html:not(#lx) body.cinematic.lx-light-page .product-gallery-wrap,
+html:not(#lx) body.cinematic.lx-light-page .product-image-large { background: var(--lx-beige) !important; }
+html:not(#lx) body.cinematic.lx-light-page .product-gallery-controls {
+  background: rgba(247, 244, 237, .86) !important;
+  border: 1px solid var(--lx-line) !important;
+  color: var(--lx-emerald) !important;
+}
+html:not(#lx) body.cinematic.lx-light-page .product-gallery-controls button { color: var(--lx-emerald) !important; }
+html:not(#lx) body.cinematic.lx-light-page .detail-price { color: var(--lx-emerald) !important; }
+html:not(#lx) body.cinematic.lx-light-page :is(.detail-benefits, .detail-benefit, .product-accordion, .detail-section, details, hr) { border-color: var(--lx-line) !important; }
+
+/* ---------- 6. Bag and checkout: calm, compact headings ------------------------------ */
+html:not(#lx) body.cinematic.lx-light-page .page-hero--banner {
+  min-height: 0 !important;
+  padding-top: calc(var(--hc-header) + clamp(40px, 7vh, 72px)) !important;
+  border-bottom: 1px solid var(--lx-line);
+}
+html:not(#lx) body.cinematic.lx-light-page .page-hero--banner .page-hero-banner-media,
+html:not(#lx) body.cinematic.lx-light-page .page-hero--banner::after { display: none !important; }
+html:not(#lx) body.cinematic.lx-light-page .page-hero--banner .page-hero-copy { padding-bottom: clamp(30px, 5vh, 48px) !important; }
+html:not(#lx) body.cinematic.lx-light-page :is(.page-hero, .page-hero--contact, .page-hero--plain, .account-main, .store-main) { background-image: none !important; }
+html:not(#lx) body.cinematic.lx-light-page .page-hero--velvet { background: var(--lx-ivory) !important; border-bottom: 1px solid var(--lx-line) !important; }
+html:not(#lx) body.cinematic :is(.lx-light-page main, .lx-light, .lx-beige, .lx-white) .quantity-stepper {
+  background: transparent !important;
+  border: 1px solid var(--lx-line-strong) !important;
+  color: var(--lx-emerald) !important;
+}
+html:not(#lx) body.cinematic :is(.lx-light-page main, .lx-light, .lx-beige, .lx-white) .quantity-stepper :is(button, input) { color: var(--lx-emerald) !important; }
+
+/* ---------- 7. Small emerald accents inside light sections --------------------------- */
+html:not(#lx) body.cinematic .brand-rail button.is-active {
+  background: var(--lx-emerald) !important;
+  border-color: var(--lx-emerald) !important;
+  color: var(--lx-text-on-dark) !important;
+}
+html:not(#lx) body.cinematic .brand-rail button.is-active :is(span, small) { color: var(--lx-gold-soft) !important; }
+
+/* ---------- 8. Form fields on light grounds ------------------------------------------- */
+html:not(#lx) body.cinematic :is(.lx-light-page main, .lx-light, .lx-beige, .lx-white) :is(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]), select, textarea):not(.lx-dark *) {
+  color: var(--lx-charcoal) !important;
+  -webkit-text-fill-color: var(--lx-charcoal) !important;
+  border-color: var(--lx-field-line) !important;
+}
+html:not(#lx) body.cinematic :is(.lx-light-page main, .lx-light, .lx-beige, .lx-white) :is(input, textarea)::placeholder {
+  color: rgba(37, 37, 34, .45) !important;
+  -webkit-text-fill-color: rgba(37, 37, 34, .45) !important;
+}
+html:not(#lx) body.cinematic :is(.lx-light-page main, .lx-light, .lx-beige, .lx-white) :is(input, select, textarea):focus { border-color: var(--lx-emerald) !important; }
+html:not(#lx) body.cinematic :is(.lx-light-page main, .lx-light, .lx-beige, .lx-white) input:-webkit-autofill { -webkit-box-shadow: 0 0 0 40px var(--lx-white) inset !important; }
+html:not(#lx) body.cinematic :is(.lx-light-page main, .lx-light, .lx-beige, .lx-white) :is(.field-hint, .form-hint, .hint):not(.lx-dark *) { color: var(--lx-text-soft) !important; }
+html:not(#lx) body.cinematic :is(.lx-light-page main, .lx-light, .lx-beige, .lx-white) .checkout-form .form-grid label:not(.lx-dark *) { color: var(--lx-accent) !important; }
+html:not(#lx) body.cinematic :is(.lx-light-page main, .lx-light, .lx-beige, .lx-white) .checkout-form .form-grid label > span:not(.field-hint) { color: var(--lx-text-soft) !important; }
+html:not(#lx) body.cinematic :is(.lx-light-page main, .lx-light, .lx-beige, .lx-white) :is(label, .consent, .checkbox-row) a:not(.lx-dark *) { color: var(--lx-emerald) !important; }
+html:not(#lx) body.cinematic.lx-light-page :is(.policy-consent, .save-address-consent, .age-consent) span { color: var(--lx-text) !important; }
+html:not(#lx) body.cinematic.lx-light-page :is(.policy-consent, .save-address-consent) { border-color: var(--lx-line) !important; background: var(--lx-white) !important; }
+html:not(#lx) body.cinematic.lx-light-page :is(.policy-consent, .save-address-consent) input { accent-color: var(--lx-emerald); }
+html:not(#lx) body.cinematic.lx-light-page .checkout-auth-note { color: var(--lx-text) !important; border-left-color: var(--lx-gold) !important; background: rgba(196, 164, 108, .14) !important; }
+html:not(#lx) body.cinematic.lx-light-page .detail-reference { color: var(--lx-text-soft) !important; }
+html:not(#lx) body.cinematic.lx-light-page .remove-button { color: #7a3a33 !important; }
+html:not(#lx) body.cinematic.lx-light-page .account-form-section span { color: var(--lx-accent) !important; }
+
+/* ---------- 9. Footer: the closing signature in rich emerald -------------------------- */
+html body.cinematic .site-footer {
+  background-color: var(--lx-emerald-dark) !important;
+  background-image: linear-gradient(160deg, var(--lx-emerald) 0%, var(--lx-emerald-dark) 70%) !important;
+  border-top: 1px solid rgba(196, 164, 108, .28) !important;
+}
+
+/* ---------- 10. Shape: refined, near-square controls --------------------------------- */
+/* Pill-shaped buttons read as app UI; a fine 2px corner is quieter and more couture. */
+.cinematic { --lx-radius: 2px; }
+html:not(#lx) body.cinematic :is(.cine-button, .button, button.primary, .primary-button, .checkout-submit, #add-to-bag, .mini-button, .chapter-chips a, .chip-row a, .finish-option, .filter-trigger, .quantity-stepper, .cine-enquire-pill, .account-tabs, .account-tabs button, .custom-filter button, .brand-rail button, .policy-consent, .save-address-consent, .cart-content, .order-confirmation, .mobile-nav-enquire) {
+  border-radius: var(--lx-radius) !important;
+}
+@media (min-width: 761px) {
+  html:not(#lx) body.cinematic .enquire-dock { border-radius: var(--lx-radius) !important; }
+}
+
+/* Quiet, consistent hover on every primary and secondary button */
+html body.cinematic :is(.cine-button, .button, .checkout-submit, #add-to-bag) { transition: background-color .35s var(--hc-ease), border-color .35s var(--hc-ease), color .35s var(--hc-ease) !important; }

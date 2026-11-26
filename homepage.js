@@ -58,7 +58,7 @@
       else link.removeAttribute('aria-current');
     });
     const current = indexTargets[active];
-    indexNav?.classList.toggle('on-light', !!current?.matches('.shop-by, .pieces'));
+    indexNav?.classList.toggle('on-light', !!current?.matches('.shop-by, .pieces, [data-tone="light"]'));
     indexNav?.classList.toggle('is-quiet', !!footer && footer.getBoundingClientRect().top < vh * .7);
   };
 
