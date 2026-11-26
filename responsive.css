@@ -393,7 +393,7 @@ html body.cinematic .store-card .wishlist-toggle:not([aria-pressed="true"]):hove
    exact satin disappears into the background, so they use a lighter cut of the same satin
    with a soft glow around the letters. Browsers without text-clipping show a solid colour. */
 html body :is(h1, h2, h3) em { color: #7e2a36 !important; }
-html body :is(.shop-by-head, .pieces-head, .pieces, .page-head, .detail-split, .paper-card, .cart-content, .shop-empty, .flip-stack-intro, .account-card, .account-page-heading, .admin-page .auth-panel) :is(h1, h2, h3) em { color: #43121a !important; }
+html body :is(.shop-by-head, .pieces-head, .pieces, .page-head, .detail-split, .paper-card, .cart-content, .shop-empty, .flip-stack-intro, .account-card, .account-page-heading, .admin-page .auth-panel, .chapter-copy) :is(h1, h2, h3) em { color: #43121a !important; }
 @supports ((-webkit-background-clip: text) or (background-clip: text)) {
   html body :is(h1, h2, h3) em {
     background-color: #7e2a36;
@@ -413,9 +413,30 @@ html body :is(.shop-by-head, .pieces-head, .pieces, .page-head, .detail-split, .
     padding: .18em .22em .3em .22em;
     margin: -.18em -.22em -.3em -.22em;
   }
-  html body :is(.shop-by-head, .pieces-head, .pieces, .page-head, .detail-split, .paper-card, .cart-content, .shop-empty, .flip-stack-intro, .account-card, .account-page-heading, .admin-page .auth-panel) :is(h1, h2, h3) em {
+  html body :is(.shop-by-head, .pieces-head, .pieces, .page-head, .detail-split, .paper-card, .cart-content, .shop-empty, .flip-stack-intro, .account-card, .account-page-heading, .admin-page .auth-panel, .chapter-copy) :is(h1, h2, h3) em {
     background-color: #43121a;
     background-image: url("assets/textures/burgundy-satin.jpg");
     filter: none;
   }
+}
+
+/* ---- Homepage chapters on beige (owner request, Nov 2026) ----------------------------
+   The five collection chapters (Fine jewellery to Bespoke) sit on a warm beige instead of
+   dark green. Text, chips and outline buttons switch to the dark ink so they stay readable,
+   and the italic accents use the exact satin, as on the other light sections. */
+html body.home-cinematic .chapters,
+html body.home-cinematic .chapter-frame { background: #e9e1d1; color: #0f2a1e; }
+html body.home-cinematic .chapter-count { color: #4f6457; }
+html body.home-cinematic .chapter-count span,
+html body.home-cinematic .chapter-copy .cine-eyebrow { color: #7a5c2b; }
+html body.home-cinematic .chapter-copy > p:not(.cine-eyebrow):not(.chapter-count) { color: #3d5246; }
+html body.home-cinematic .chapter-chips a { border-color: rgba(15, 42, 30, .3); color: #0f2a1e; }
+html body.home-cinematic .chapter-chips a:hover { border-color: #7a5c2b; color: #7a5c2b; }
+html body.home-cinematic .chapter-copy .cine-button:not(.cine-button-solid) { border-color: rgba(15, 42, 30, .45); color: #0f2a1e; }
+html body.home-cinematic .chapter-copy .cine-button:not(.cine-button-solid):hover { background: rgba(15, 42, 30, .07); border-color: #0f2a1e; }
+/* Section dots stay visible over the beige chapters, in dark ink. */
+/* (On chapters with the photo on the right the dots sit over the photo, so they stay light.) */
+html body.home-cinematic .chapter-index.on-beige:not(.on-photo) { color: #0f2a1e; }
+@media (max-width: 980px) {
+  html body.home-cinematic .chapter-index.on-beige { background: rgba(241, 236, 225, .7); color: #0f2a1e; }
 }

@@ -59,6 +59,8 @@
     });
     const current = indexTargets[active];
     indexNav?.classList.toggle('on-light', !!current?.matches('.shop-by, .pieces'));
+    indexNav?.classList.toggle('on-beige', !!current?.matches('.chapter'));
+    indexNav?.classList.toggle('on-photo', !!current?.matches('.chapter-reverse'));
     indexNav?.classList.toggle('is-quiet', !!footer && footer.getBoundingClientRect().top < vh * .7);
   };
 
